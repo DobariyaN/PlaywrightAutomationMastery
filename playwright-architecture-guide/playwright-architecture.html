@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playwright End-to-End Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#121826;
+    --panel-1:#1A2334;
+    --panel-2:#212C40;
+    --line:#2B374F;
+    --teal:#4FD1C5;
+    --teal-dim:#2C6D68;
+    --amber:#F2A93B;
+    --text:#E9ECF2;
+    --muted:#93A0B7;
+    --muted-2:#6C7B95;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{
+    font-family:'Space Grotesk',system-ui,sans-serif;
+    font-weight:600;
+    line-height:1.15;
+    margin:0;
+  }
+  code, .mono{
+    font-family:'JetBrains Mono',monospace;
+  }
+  a{color:var(--teal);}
+
+  /* ---------- layout shell ---------- */
+  .shell{
+    display:grid;
+    grid-template-columns:240px minmax(0,1fr);
+    max-width:1280px;
+    margin:0 auto;
+  }
+  nav.rail{
+    position:sticky;
+    top:0;
+    align-self:start;
+    height:100vh;
+    padding:36px 20px 20px 32px;
+    border-right:1px solid var(--line);
+    overflow-y:auto;
+  }
+  nav.rail .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:34px;
+  }
+  nav.rail .brand svg{width:26px;height:26px;flex:none;}
+  nav.rail .brand span{
+    font-family:'Space Grotesk';
+    font-weight:600;
+    font-size:15px;
+    letter-spacing:0.2px;
+  }
+  nav.rail ol{
+    list-style:none;
+    margin:0;padding:0;
+    counter-reset:navstep;
+  }
+  nav.rail li{margin-bottom:2px;}
+  nav.rail a{
+    counter-increment:navstep;
+    display:flex;
+    gap:10px;
+    align-items:baseline;
+    color:var(--muted);
+    text-decoration:none;
+    font-size:13.5px;
+    padding:7px 8px;
+    border-radius:7px;
+  }
+  nav.rail a::before{
+    content:counter(navstep, decimal-leading-zero);
+    font-family:'JetBrains Mono';
+    font-size:11px;
+    color:var(--muted-2);
+  }
+  nav.rail a:hover{background:var(--panel-2);color:var(--text);}
+
+  main{padding:0 48px 100px;min-width:0;}
+
+  /* ---------- hero ---------- */
+  .hero{
+    padding:76px 0 46px;
+    border-bottom:1px solid var(--line);
+  }
+  .hero .kicker{
+    color:var(--teal);
+    font-family:'JetBrains Mono';
+    font-size:13px;
+    margin-bottom:18px;
+  }
+  .hero h1{
+    font-size:clamp(34px,5vw,54px);
+    max-width:14ch;
+    letter-spacing:-0.5px;
+  }
+  .hero p.lede{
+    max-width:62ch;
+    color:var(--muted);
+    font-size:17px;
+    margin-top:20px;
+  }
+
+  /* ---------- generic sections ---------- */
+  section.block{
+    padding:56px 0;
+    border-bottom:1px solid var(--line);
+  }
+  section.block:last-of-type{border-bottom:none;}
+  .eyebrow-num{
+    font-family:'JetBrains Mono';
+    color:var(--muted-2);
+    font-size:13px;
+    margin-bottom:10px;
+  }
+  section.block h2{
+    font-size:26px;
+    max-width:26ch;
+    margin-bottom:14px;
+  }
+  section.block > p{
+    max-width:68ch;
+    color:var(--muted);
+    font-size:15.5px;
+  }
+
+  /* ---------- diagram ---------- */
+  .diagram-wrap{
+    margin-top:34px;
+    background:var(--panel-1);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:20px;
+  }
+  .diagram-wrap svg{width:100%;height:auto;display:block;}
+  .diagram-legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:22px;
+    margin-top:18px;
+    padding-top:16px;
+    border-top:1px dashed var(--line);
+  }
+  .diagram-legend .item{
+    display:flex;align-items:center;gap:8px;
+    font-size:13px;color:var(--muted);
+  }
+  .swatch{width:11px;height:11px;border-radius:3px;flex:none;}
+
+  /* ---------- component cards ---------- */
+  .comp-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+    gap:14px;
+    margin-top:30px;
+  }
+  .comp-card{
+    background:var(--panel-1);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px;
+  }
+  .comp-card .letter{
+    font-family:'JetBrains Mono';
+    font-size:12px;
+    color:var(--ink);
+    background:var(--teal);
+    width:22px;height:22px;
+    border-radius:5px;
+    display:flex;align-items:center;justify-content:center;
+    margin-bottom:14px;
+  }
+  .comp-card h3{font-size:15px;margin-bottom:6px;}
+  .comp-card p{font-size:13.5px;color:var(--muted);margin:0;}
+
+  /* ---------- flow steps ---------- */
+  .steps{margin-top:30px;counter-reset:step;}
+  .step{
+    display:grid;
+    grid-template-columns:34px 1fr;
+    gap:16px;
+    padding:16px 0;
+    border-top:1px solid var(--line);
+  }
+  .step:first-child{border-top:none;}
+  .step .num{
+    counter-increment:step;
+    font-family:'JetBrains Mono';
+    color:var(--amber);
+    font-size:13px;
+    padding-top:2px;
+  }
+  .step .num::before{content:counter(step, decimal-leading-zero);}
+  .step p{margin:0;color:var(--muted);font-size:14.5px;max-width:70ch;}
+  .step strong{color:var(--text);}
+
+  /* ---------- protocol table ---------- */
+  table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:28px;
+    font-size:14px;
+  }
+  thead th{
+    text-align:left;
+    font-family:'JetBrains Mono';
+    font-weight:500;
+    font-size:12px;
+    color:var(--muted-2);
+    padding:0 12px 10px;
+    border-bottom:1px solid var(--line);
+  }
+  tbody td{
+    padding:14px 12px;
+    border-bottom:1px solid var(--line);
+    color:var(--muted);
+    vertical-align:top;
+  }
+  tbody td:first-child{color:var(--text);font-weight:500;}
+  tbody tr:last-child td{border-bottom:none;}
+  .pill{
+    display:inline-block;
+    font-family:'JetBrains Mono';
+    font-size:12px;
+    padding:3px 9px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    color:var(--teal);
+  }
+
+  /* ---------- glossary ---------- */
+  .glossary{margin-top:26px;}
+  .gloss-item{
+    padding:16px 0;
+    border-top:1px solid var(--line);
+    display:grid;
+    grid-template-columns:180px 1fr;
+    gap:16px;
+  }
+  .gloss-item:first-child{border-top:none;}
+  .gloss-item dt{
+    font-family:'JetBrains Mono';
+    font-size:13.5px;
+    color:var(--teal);
+  }
+  .gloss-item dd{margin:0;color:var(--muted);font-size:14px;}
+
+  footer{
+    padding:40px 0 10px;
+    color:var(--muted-2);
+    font-size:13px;
+  }
+
+  @media (max-width:880px){
+    .shell{grid-template-columns:1fr;}
+    nav.rail{display:none;}
+    main{padding:0 22px 80px;}
+    .gloss-item{grid-template-columns:1fr;gap:4px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <nav class="rail">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#4FD1C5" stroke-width="2"/><path d="M9 8L16 12L9 16V8Z" fill="#4FD1C5"/></svg>
+      <span>Playwright Architecture</span>
+    </div>
+    <ol>
+      <li><a href="#big-picture">The big picture</a></li>
+      <li><a href="#diagram">Architecture diagram</a></li>
+      <li><a href="#components">Five components</a></li>
+      <li><a href="#flow">A click, traced</a></li>
+      <li><a href="#protocols">Engine protocols</a></li>
+      <li><a href="#binaries">executablePath &amp; channel</a></li>
+      <li><a href="#why">Why this design</a></li>
+      <li><a href="#glossary">Glossary</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <section class="hero" id="big-picture">
+      <div class="kicker">for students &middot; automated testing</div>
+      <h1>Playwright End-to-End Architecture</h1>
+      <p class="lede">Playwright looks like one library, but it's really a small distributed system: a test script, a translator, a wire, a driver, and three differently-spoken browsers. Once you see how a single click travels through all five, the rest of the API makes a lot more sense.</p>
+    </section>
+
+    <section class="block" id="diagram">
+      <div class="eyebrow-num">Architecture diagram</div>
+      <h2>One driver, many languages, three engines</h2>
+      <p>Every Playwright command makes the same trip: out of your script, across a persistent socket, into a single Node.js driver, and out to whichever browser engine is doing the work.</p>
+
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 1180 540" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+              <path d="M0,0 L8,4 L0,8 Z" fill="#8091AC"/>
+            </marker>
+            <marker id="arrowTeal" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+              <path d="M0,0 L8,4 L0,8 Z" fill="#4FD1C5"/>
+            </marker>
+          </defs>
+
+          <!-- Client languages -->
+          <g font-family="Inter, sans-serif">
+            <rect x="16" y="150" width="160" height="230" rx="10" fill="#1A2334" stroke="#2B374F"/>
+            <text x="96" y="182" text-anchor="middle" fill="#93A0B7" font-size="11" font-family="JetBrains Mono">CLIENT LIBRARIES</text>
+            <g font-size="13" fill="#E9ECF2">
+              <rect x="34" y="196" width="124" height="26" rx="6" fill="#212C40"/>
+              <text x="96" y="213" text-anchor="middle">TypeScript / JS</text>
+              <rect x="34" y="230" width="124" height="26" rx="6" fill="#212C40"/>
+              <text x="96" y="247" text-anchor="middle">Python</text>
+              <rect x="34" y="264" width="124" height="26" rx="6" fill="#212C40"/>
+              <text x="96" y="281" text-anchor="middle">Java</text>
+              <rect x="34" y="298" width="124" height="26" rx="6" fill="#212C40"/>
+              <text x="96" y="315" text-anchor="middle">C# / .NET</text>
+            </g>
+            <text x="96" y="400" text-anchor="middle" fill="#6C7B95" font-size="12">your test script</text>
+          </g>
+
+          <path d="M176 265 L 234 265" stroke="#8091AC" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+          <!-- Client/API layer -->
+          <g>
+            <rect x="236" y="190" width="150" height="150" rx="10" fill="#1A2334" stroke="#2B374F"/>
+            <text x="311" y="222" text-anchor="middle" fill="#E9ECF2" font-size="13.5" font-weight="600" font-family="Space Grotesk">Client / API</text>
+            <text x="311" y="242" text-anchor="middle" fill="#93A0B7" font-size="11.5">translates calls</text>
+            <text x="311" y="258" text-anchor="middle" fill="#93A0B7" font-size="11.5">into protocol</text>
+            <text x="311" y="274" text-anchor="middle" fill="#93A0B7" font-size="11.5">messages</text>
+          </g>
+
+          <!-- WebSocket bidirectional -->
+          <path d="M386 250 L 466 250" stroke="#4FD1C5" stroke-width="2" marker-end="url(#arrowTeal)"/>
+          <path d="M466 292 L 386 292" stroke="#F2A93B" stroke-width="2" marker-end="url(#arrow)"/>
+          <text x="426" y="232" text-anchor="middle" fill="#4FD1C5" font-size="11" font-family="JetBrains Mono">ws://</text>
+          <text x="426" y="315" text-anchor="middle" fill="#93A0B7" font-size="10.5">JSON-RPC</text>
+
+          <!-- Server/driver -->
+          <g>
+            <rect x="470" y="150" width="200" height="230" rx="10" fill="#1A2334" stroke="#2B374F"/>
+            <text x="570" y="182" text-anchor="middle" fill="#93A0B7" font-size="11" font-family="JetBrains Mono">NODE.JS PROCESS</text>
+            <rect x="490" y="196" width="160" height="60" rx="8" fill="#212C40"/>
+            <text x="570" y="222" text-anchor="middle" fill="#E9ECF2" font-size="13.5" font-weight="600" font-family="Space Grotesk">Playwright</text>
+            <text x="570" y="240" text-anchor="middle" fill="#E9ECF2" font-size="13.5" font-weight="600" font-family="Space Grotesk">Driver</text>
+            <text x="570" y="278" text-anchor="middle" fill="#93A0B7" font-size="11.5">browser &amp; context</text>
+            <text x="570" y="294" text-anchor="middle" fill="#93A0B7" font-size="11.5">lifecycle</text>
+            <text x="570" y="318" text-anchor="middle" fill="#93A0B7" font-size="11.5">auto-wait /</text>
+            <text x="570" y="334" text-anchor="middle" fill="#93A0B7" font-size="11.5">actionability checks</text>
+          </g>
+
+          <!-- three branches out -->
+          <path d="M670 210 C 740 210, 740 90, 800 90" stroke="#8091AC" stroke-width="1.6" fill="none" marker-end="url(#arrow)"/>
+          <path d="M670 265 L 800 265" stroke="#8091AC" stroke-width="1.6" marker-end="url(#arrow)"/>
+          <path d="M670 320 C 740 320, 740 445, 800 445" stroke="#8091AC" stroke-width="1.6" fill="none" marker-end="url(#arrow)"/>
+
+          <text x="735" y="150" fill="#6C7B95" font-size="10.5" font-family="JetBrains Mono">CDP</text>
+          <text x="735" y="255" fill="#6C7B95" font-size="10.5" font-family="JetBrains Mono">patched protocol</text>
+          <text x="735" y="400" fill="#6C7B95" font-size="10.5" font-family="JetBrains Mono">patched protocol</text>
+
+          <!-- engine boxes -->
+          <g>
+            <rect x="804" y="40" width="360" height="100" rx="10" fill="#1A2334" stroke="#2B374F"/>
+            <circle cx="840" cy="90" r="16" fill="#212C40"/>
+            <path d="M840 78 a12 12 0 1 0 0.01 0" fill="none" stroke="#4FD1C5" stroke-width="2"/>
+            <text x="866" y="82" fill="#E9ECF2" font-size="14" font-weight="600" font-family="Space Grotesk">Chromium engine</text>
+            <text x="866" y="100" fill="#93A0B7" font-size="12">Chrome, Edge &amp; Chromium-based browsers</text>
+            <text x="866" y="118" fill="#6C7B95" font-size="11">native rendering process</text>
+          </g>
+
+          <g>
+            <rect x="804" y="215" width="360" height="100" rx="10" fill="#1A2334" stroke="#2B374F"/>
+            <circle cx="840" cy="265" r="16" fill="#212C40"/>
+            <path d="M840 253 a12 12 0 1 0 0.01 0" fill="none" stroke="#F2A93B" stroke-width="2"/>
+            <text x="866" y="257" fill="#E9ECF2" font-size="14" font-weight="600" font-family="Space Grotesk">Firefox engine</text>
+            <text x="866" y="275" fill="#93A0B7" font-size="12">a build patched by the Playwright team</text>
+            <text x="866" y="293" fill="#6C7B95" font-size="11">exposes extra automation hooks</text>
+          </g>
+
+          <g>
+            <rect x="804" y="395" width="360" height="100" rx="10" fill="#1A2334" stroke="#2B374F"/>
+            <circle cx="840" cy="445" r="16" fill="#212C40"/>
+            <path d="M840 433 a12 12 0 1 0 0.01 0" fill="none" stroke="#F2A93B" stroke-width="2"/>
+            <text x="866" y="437" fill="#E9ECF2" font-size="14" font-weight="600" font-family="Space Grotesk">WebKit engine</text>
+            <text x="866" y="455" fill="#93A0B7" font-size="12">powers Safari; also patched by the team</text>
+            <text x="866" y="473" fill="#6C7B95" font-size="11">custom automation protocol</text>
+          </g>
+        </svg>
+
+        <div class="diagram-legend">
+          <div class="item"><span class="swatch" style="background:#4FD1C5"></span>command channel (client → driver)</div>
+          <div class="item"><span class="swatch" style="background:#F2A93B"></span>event channel (driver → client)</div>
+          <div class="item"><span class="swatch" style="background:#8091AC"></span>protocol call to a rendering engine</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="components">
+      <div class="eyebrow-num">02</div>
+      <h2>Five components, one round trip</h2>
+      <p>Read left to right in the diagram above, or top to bottom here — a command always visits these five stops in order.</p>
+      <div class="comp-grid">
+        <div class="comp-card"><div class="letter">A</div><h3>Client Libraries</h3><p>Where you write <code>page.click()</code>, in whichever language your team uses.</p></div>
+        <div class="comp-card"><div class="letter">B</div><h3>Client / API layer</h3><p>Converts your API call into a protocol message — the same shape regardless of language.</p></div>
+        <div class="comp-card"><div class="letter">C</div><h3>Transport</h3><p>An open WebSocket carrying JSON-RPC messages, bidirectionally, without polling.</p></div>
+        <div class="comp-card"><div class="letter">D</div><h3>Playwright Driver</h3><p>A single Node.js process. Owns browser lifecycle and actionability checks.</p></div>
+        <div class="comp-card"><div class="letter">E</div><h3>Browser Engines</h3><p>Chromium, Firefox, WebKit — each driven by a different underlying protocol.</p></div>
+      </div>
+    </section>
+
+    <section class="block" id="flow">
+      <div class="eyebrow-num">03</div>
+      <h2>Tracing <code class="mono">page.click("#submit")</code></h2>
+      <p>Following one command end-to-end is the fastest way to internalize the architecture.</p>
+      <div class="steps">
+        <div class="step"><div class="num"></div><p><strong>You call</strong> <code>await page.click("#submit")</code> in your test file.</p></div>
+        <div class="step"><div class="num"></div><p>The <strong>client layer</strong> serializes it into a JSON-RPC message describing the action and its target.</p></div>
+        <div class="step"><div class="num"></div><p>The message travels over the <strong>persistent WebSocket</strong> to the driver; the same socket carries events back the other way.</p></div>
+        <div class="step"><div class="num"></div><p>The <strong>driver</strong> runs actionability checks — visible, stable, enabled, not obscured — waiting automatically until they pass.</p></div>
+        <div class="step"><div class="num"></div><p>The driver issues a low-level instruction to the correct <strong>browser engine</strong>, using that engine's own protocol.</p></div>
+        <div class="step"><div class="num"></div><p>The result flows back up the same path and resolves your <code>await</code> in the test script.</p></div>
+      </div>
+    </section>
+
+    <section class="block" id="protocols">
+      <div class="eyebrow-num">04</div>
+      <h2>One driver, three different protocols</h2>
+      <p>Playwright doesn't talk to every browser the same way — this is the detail most guides skip.</p>
+      <table>
+        <thead>
+          <tr><th>Engine</th><th>Real browsers</th><th>Protocol</th><th>Why</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Chromium</td>
+            <td>Chrome, Edge, Chromium-based browsers</td>
+            <td><span class="pill">CDP</span></td>
+            <td>Chrome DevTools Protocol is built into Chromium already — no patching needed.</td>
+          </tr>
+          <tr>
+            <td>Firefox</td>
+            <td>Firefox</td>
+            <td><span class="pill">patched protocol</span></td>
+            <td>The Playwright team maintains a patched Firefox build exposing hooks not available by default.</td>
+          </tr>
+          <tr>
+            <td>WebKit</td>
+            <td>Safari</td>
+            <td><span class="pill">patched, custom protocol</span></td>
+            <td>WebKit is similarly patched by the Playwright team for reliable automation.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="block" id="binaries">
+      <div class="eyebrow-num">05</div>
+      <h2><code class="mono">executablePath</code> &amp; <code class="mono">channel</code></h2>
+      <p>By default, Playwright launches the patched binaries it downloaded via <code>playwright install</code>. Two driver-level options let you override that choice.</p>
+      <div class="comp-grid" style="grid-template-columns:repeat(2,minmax(220px,1fr));">
+        <div class="comp-card"><h3><code class="mono">channel</code></h3><p>Launch an already-installed real browser build instead — e.g. <code>'chrome'</code> or <code>'msedge'</code> — to test against exactly what your users run.</p></div>
+        <div class="comp-card"><h3><code class="mono">executablePath</code></h3><p>Point Playwright at any specific binary on disk, by file path, for full manual control.</p></div>
+      </div>
+    </section>
+
+    <section class="block" id="why">
+      <div class="eyebrow-num">06</div>
+      <h2>Why build it this way</h2>
+      <p>Older tools ran a separate driver per browser and injected automation code into the page itself. Centralizing into one out-of-process driver changes the trade-offs:</p>
+      <div class="steps">
+        <div class="step"><div class="num"></div><p><strong>One source of truth</strong> — waiting, retries, and API behavior live in one driver, not reimplemented per language.</p></div>
+        <div class="step"><div class="num"></div><p><strong>A live channel, not polling</strong> — the persistent WebSocket streams events (logs, network activity, dialogs) as they happen.</p></div>
+        <div class="step"><div class="num"></div><p><strong>Deliberately patched browsers</strong> — controlling the Firefox and WebKit builds gives hooks that stock consumer browsers don't expose.</p></div>
+      </div>
+    </section>
+
+    <section class="block" id="glossary">
+      <div class="eyebrow-num">07</div>
+      <h2>Glossary</h2>
+      <dl class="glossary">
+        <div class="gloss-item"><dt>CDP</dt><dd>Chrome DevTools Protocol — Chromium's built-in interface for external control and inspection.</dd></div>
+        <div class="gloss-item"><dt>JSON-RPC</dt><dd>A lightweight message format for remote procedure calls; encodes every command and response.</dd></div>
+        <div class="gloss-item"><dt>WebSocket</dt><dd>A connection that stays open so both sides can send messages at any time, unlike a normal HTTP request.</dd></div>
+        <div class="gloss-item"><dt>Playwright Driver</dt><dd>The Node.js process that receives client commands and controls the browsers.</dd></div>
+        <div class="gloss-item"><dt>Actionability checks</dt><dd>Automatic checks — visible, stable, enabled, receives events — run before any interaction.</dd></div>
+        <div class="gloss-item"><dt>Browser context</dt><dd>An isolated, incognito-like session inside a browser instance; many can run in parallel.</dd></div>
+        <div class="gloss-item"><dt>Headless</dt><dd>Running a browser with no visible window, common in CI pipelines.</dd></div>
+      </dl>
+    </section>
+
+    <footer>An educational reference on Playwright's end-to-end architecture.</footer>
+  </main>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playwright Architecture — A Visual Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy:    #0B1120;
+    --navy2:   #111827;
+    --navy3:   #1C2840;
+    --card:    #1A2436;
+    --card2:   #213045;
+    --blue:    #4F8EF7;
+    --blue-lt: #93C5FD;
+    --cyan:    #67E8F9;
+    --green:   #4ADE80;
+    --amber:   #FBD060;
+    --coral:   #F87171;
+    --purple:  #A78BFA;
+    --text1:   #F0F4FF;
+    --text2:   #A8B8D0;
+    --text3:   #647089;
+    --border:  rgba(79,142,247,0.15);
+    --border2: rgba(79,142,247,0.30);
+    --radius:  10px;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--navy);
+    color: var(--text1);
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ── */
+  .layout { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--navy2);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 0 0 2rem;
+  }
+
+  .sidebar-logo {
+    padding: 1.5rem 1.25rem 1rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.5rem;
+  }
+  .sidebar-logo .pw { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 700; color: var(--blue); letter-spacing: -0.02em; }
+  .sidebar-logo .sub { font-size: 0.7rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+
+  .sidebar nav { padding: 0 0.75rem; }
+  .nav-group { margin-top: 1.25rem; }
+  .nav-label { font-size: 0.65rem; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.1em; padding: 0 0.5rem 0.4rem; }
+  .nav-link {
+    display: block; padding: 0.45rem 0.75rem; border-radius: 6px;
+    font-size: 0.82rem; color: var(--text2); text-decoration: none;
+    transition: all 0.15s; margin-bottom: 1px;
+  }
+  .nav-link:hover, .nav-link.active { background: rgba(79,142,247,0.1); color: var(--blue-lt); }
+  .nav-link.active { font-weight: 500; }
+
+  /* ── Main ── */
+  .main { flex: 1; overflow: auto; }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(160deg, #0d1a30 0%, #111827 60%, #0B1120 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 3.5rem 3rem 3rem;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 600px 300px at 70% 50%, rgba(79,142,247,0.06) 0%, transparent 70%);
+  }
+  .hero-badge {
+    display: inline-block; font-family: var(--mono); font-size: 0.7rem;
+    color: var(--blue); background: rgba(79,142,247,0.1); border: 1px solid rgba(79,142,247,0.25);
+    border-radius: 4px; padding: 0.25rem 0.6rem; margin-bottom: 1.25rem;
+  }
+  .hero h1 { font-family: 'Space Grotesk', sans-serif; font-size: 2.4rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 0.75rem; }
+  .hero h1 span { color: var(--blue); }
+  .hero p { font-size: 1rem; color: var(--text2); max-width: 520px; line-height: 1.75; }
+  .hero-meta { display: flex; gap: 1.5rem; margin-top: 1.5rem; }
+  .hero-meta span { font-size: 0.78rem; color: var(--text3); display: flex; align-items: center; gap: 5px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+
+  /* ── Content ── */
+  .content { padding: 2.5rem 3rem 5rem; max-width: 860px; }
+
+  /* ── Section ── */
+  .section { margin-bottom: 4rem; scroll-margin-top: 2rem; }
+  .section-eyebrow { font-family: var(--mono); font-size: 0.7rem; color: var(--blue); letter-spacing: 0.06em; margin-bottom: 0.6rem; }
+  .section h2 { font-family: 'Space Grotesk', sans-serif; font-size: 1.55rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 0.75rem; }
+  .section > p, .section .prose { font-size: 0.93rem; color: var(--text2); line-height: 1.8; margin-bottom: 1rem; }
+
+  /* ── Callout ── */
+  .callout {
+    border-left: 3px solid var(--blue); background: rgba(79,142,247,0.06);
+    padding: 0.9rem 1.1rem; border-radius: 0 8px 8px 0; margin: 1.25rem 0;
+    font-size: 0.88rem; color: var(--text2);
+  }
+  .callout strong { color: var(--blue-lt); }
+
+  /* ── Cards grid ── */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.1rem 1.2rem;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--border2); }
+  .card-icon { font-size: 1.4rem; margin-bottom: 0.6rem; }
+  .card h3 { font-family: 'Space Grotesk', sans-serif; font-size: 0.92rem; font-weight: 600; margin-bottom: 0.4rem; }
+  .card p { font-size: 0.8rem; color: var(--text2); line-height: 1.65; }
+
+  /* ── Architecture diagram ── */
+  .arch-diagram {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.75rem 1.5rem; margin: 1.5rem 0;
+    font-size: 0.82rem;
+  }
+  .arch-diagram h3 { font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1.25rem; }
+
+  /* Layer rows */
+  .layer { margin-bottom: 0.5rem; }
+  .layer-label { font-family: var(--mono); font-size: 0.68rem; color: var(--text3); margin-bottom: 0.35rem; }
+  .layer-boxes { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .box {
+    border-radius: 7px; padding: 0.55rem 0.9rem;
+    font-family: var(--mono); font-size: 0.76rem; font-weight: 500;
+    border: 1px solid; cursor: default; transition: filter 0.15s, transform 0.15s;
+    white-space: nowrap;
+  }
+  .box:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .box.blue  { background: rgba(79,142,247,0.12); border-color: rgba(79,142,247,0.35); color: var(--blue-lt); }
+  .box.green { background: rgba(74,222,128,0.10); border-color: rgba(74,222,128,0.30); color: var(--green); }
+  .box.amber { background: rgba(251,208,96,0.10); border-color: rgba(251,208,96,0.30); color: var(--amber); }
+  .box.coral { background: rgba(248,113,113,0.10); border-color: rgba(248,113,113,0.30); color: var(--coral); }
+  .box.purple{ background: rgba(167,139,250,0.10); border-color: rgba(167,139,250,0.30); color: var(--purple); }
+  .box.cyan  { background: rgba(103,232,249,0.10); border-color: rgba(103,232,249,0.30); color: var(--cyan); }
+
+  .arrow-down { text-align: center; color: var(--text3); font-size: 0.8rem; padding: 0.15rem 0; line-height: 1; }
+
+  /* ── Flowchart / step diagram ── */
+  .flow { display: flex; flex-direction: column; gap: 0; margin: 1.5rem 0; }
+  .flow-step {
+    display: flex; align-items: flex-start; gap: 1rem;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 0;
+    transition: border-color 0.2s;
+  }
+  .flow-step:hover { border-color: var(--border2); }
+  .flow-step + .flow-step { border-top: none; border-radius: 0; }
+  .flow-step:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+  .flow-step:last-child  { border-radius: 0 0 var(--radius) var(--radius); }
+  .flow-num {
+    width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 0.72rem; font-weight: 600; flex-shrink: 0; margin-top: 2px;
+  }
+  .flow-num.blue   { background: rgba(79,142,247,0.15); color: var(--blue); }
+  .flow-num.green  { background: rgba(74,222,128,0.12); color: var(--green); }
+  .flow-num.amber  { background: rgba(251,208,96,0.12); color: var(--amber); }
+  .flow-num.coral  { background: rgba(248,113,113,0.12); color: var(--coral); }
+  .flow-body h4 { font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .flow-body p  { font-size: 0.82rem; color: var(--text2); line-height: 1.65; }
+  .flow-body code { font-family: var(--mono); font-size: 0.76rem; color: var(--cyan); background: rgba(103,232,249,0.08); padding: 1px 5px; border-radius: 3px; }
+
+  /* ── Code block ── */
+  .code-block {
+    background: #0D1117; border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--radius); padding: 1.1rem 1.25rem; margin: 1.25rem 0;
+    font-family: var(--mono); font-size: 0.8rem; line-height: 1.8; overflow-x: auto;
+  }
+  .code-block .fname { color: var(--text3); font-size: 0.7rem; border-bottom: 1px solid rgba(255,255,255,0.05); margin: -1.1rem -1.25rem 0.75rem; padding: 0.5rem 1.25rem; display: block; }
+  .kw  { color: #C678DD; }
+  .fn  { color: #61AFEF; }
+  .str { color: #98C379; }
+  .cm  { color: #5C6370; }
+  .va  { color: #E5C07B; }
+  .op  { color: #ABB2BF; }
+
+  /* ── Two-col ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.25rem 0; }
+
+  /* ── Protocol box ── */
+  .proto-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.1rem 1.25rem;
+  }
+  .proto-card h4 { font-family: 'Space Grotesk', sans-serif; font-size: 0.88rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .proto-card ul { list-style: none; padding: 0; }
+  .proto-card li { font-size: 0.8rem; color: var(--text2); line-height: 1.65; padding: 0.2rem 0; display: flex; gap: 0.5rem; }
+  .proto-card li::before { content: '→'; color: var(--blue); flex-shrink: 0; }
+
+  /* ── Comparison table ── */
+  .cmp-table { width: 100%; border-collapse: collapse; margin: 1.25rem 0; font-size: 0.82rem; }
+  .cmp-table th { text-align: left; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border2); color: var(--text3); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  .cmp-table td { padding: 0.65rem 0.9rem; border-bottom: 1px solid var(--border); color: var(--text2); }
+  .cmp-table tr:last-child td { border-bottom: none; }
+  .cmp-table tr:hover td { background: rgba(79,142,247,0.04); }
+  .badge { display: inline-block; font-size: 0.68rem; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+  .badge.yes  { background: rgba(74,222,128,0.12); color: var(--green); }
+  .badge.no   { background: rgba(248,113,113,0.10); color: var(--coral); }
+  .badge.part { background: rgba(251,208,96,0.10);  color: var(--amber); }
+
+  /* ── Interactive demo ── */
+  .demo-area {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;
+  }
+  .demo-area h3 { font-family: 'Space Grotesk', sans-serif; font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; }
+  .demo-tabs { display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .demo-tab {
+    padding: 0.38rem 0.85rem; border-radius: 6px; font-size: 0.78rem;
+    border: 1px solid var(--border); background: transparent; color: var(--text2);
+    cursor: pointer; transition: all 0.15s; font-family: 'Inter', sans-serif;
+  }
+  .demo-tab:hover { border-color: var(--border2); color: var(--text1); }
+  .demo-tab.active { background: rgba(79,142,247,0.12); border-color: rgba(79,142,247,0.4); color: var(--blue-lt); }
+  .demo-panel { display: none; }
+  .demo-panel.active { display: block; }
+  .demo-panel p { font-size: 0.85rem; color: var(--text2); line-height: 1.75; }
+
+  /* ── Tag pills ── */
+  .tags { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.75rem 0; }
+  .tag { font-size: 0.72rem; padding: 3px 9px; border-radius: 4px; font-family: var(--mono); }
+
+  /* ── Divider ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(79,142,247,0.2); border-radius: 3px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .hero { padding: 2rem 1.5rem; }
+    .hero h1 { font-size: 1.75rem; }
+    .content { padding: 2rem 1.5rem 4rem; }
+    .two-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="pw">🎭 Playwright</div>
+      <div class="sub">Architecture Guide</div>
+    </div>
+    <nav>
+      <div class="nav-group">
+        <div class="nav-label">Introduction</div>
+        <a href="#overview"   class="nav-link active">What is Playwright?</a>
+        <a href="#why"        class="nav-link">Why Playwright?</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Core Architecture</div>
+        <a href="#layers"     class="nav-link">Layer Model</a>
+        <a href="#cdp"        class="nav-link">CDP Protocol</a>
+        <a href="#browser-server" class="nav-link">Browser Server</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Key Concepts</div>
+        <a href="#contexts"   class="nav-link">Browser Contexts</a>
+        <a href="#pages"      class="nav-link">Pages &amp; Frames</a>
+        <a href="#execution"  class="nav-link">Execution Context</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Advanced</div>
+        <a href="#networking" class="nav-link">Network Interception</a>
+        <a href="#parallel"   class="nav-link">Parallelism</a>
+        <a href="#tracing"    class="nav-link">Tracing Engine</a>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main">
+
+    <!-- ── Hero ── -->
+    <header class="hero">
+      <div class="hero-badge">architecture · deep dive · v1.45+</div>
+      <h1>Understanding <span>Playwright</span><br>Architecture</h1>
+      <p>A visual, student-friendly walkthrough of how Playwright works under the hood — from the test runner to the browser, every layer explained.</p>
+      <div class="hero-meta">
+        <span><span class="dot" style="background:var(--green)"></span> Chromium · Firefox · WebKit</span>
+        <span><span class="dot" style="background:var(--blue)"></span> Cross-platform</span>
+        <span><span class="dot" style="background:var(--purple)"></span> Multi-language</span>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- 1. WHAT IS PLAYWRIGHT                    -->
+      <!-- ════════════════════════════════════════ -->
+      <section class="section" id="overview">
+        <div class="section-eyebrow">01 — introduction</div>
+        <h2>What is Playwright?</h2>
+        <p class="prose">Playwright is a browser automation framework built by Microsoft. It lets you write code that controls a real web browser — clicking buttons, filling forms, navigating pages — exactly as a real user would. It's primarily used for <strong>end-to-end testing</strong> of web applications.</p>
+
+        <div class="cards">
+          <div class="card">
+            <div class="card-icon">🧪</div>
+            <h3>End-to-End Testing</h3>
+            <p>Test your full application as a user experiences it — browser to server and back.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon">🌐</div>
+            <h3>Cross-Browser</h3>
+            <p>One API controls Chromium, Firefox, and WebKit (Safari's engine) identically.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon">⚡</div>
+            <h3>Auto-Waiting</h3>
+            <p>Playwright waits for elements to be ready before acting — no more flaky <code style="font-family:var(--mono);font-size:0.78em;color:var(--cyan)">sleep()</code> calls.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon">🔗</div>
+            <h3>Multi-Language</h3>
+            <p>Use JavaScript, TypeScript, Python, Java, or C# — all talk to the same engine.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- 2. WHY PLAYWRIGHT                        -->
+      <!-- ════════════════════════════════════════ -->
+      <section class="section" id="why">
+        <div class="section-eyebrow">02 — motivation</div>
+        <h2>Why Playwright over Selenium?</h2>
+        <p class="prose">Selenium was the standard for 15 years, but it was designed for a different era. Playwright was built from scratch knowing how modern browsers work.</p>
+
+        <table class="cmp-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Playwright</th>
+              <th>Selenium</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Protocol</td><td><span class="badge yes">CDP / BiDi (native)</span></td><td><span class="badge part">WebDriver (wrapper)</span></td></tr>
+            <tr><td>Auto-wait for elements</td><td><span class="badge yes">Built-in</span></td><td><span class="badge no">Manual explicit waits</span></td></tr>
+            <tr><td>Network interception</td><td><span class="badge yes">First-class</span></td><td><span class="badge no">Proxy only</span></td></tr>
+            <tr><td>Isolated test contexts</td><td><span class="badge yes">Browser Contexts</span></td><td><span class="badge no">New browser instance</span></td></tr>
+            <tr><td>Parallel execution</td><td><span class="badge yes">Native worker model</span></td><td><span class="badge part">Grid required</span></td></tr>
+            <tr><td>Built-in test runner</td><td><span class="badge yes">@playwright/test</span></td><td><span class="badge no">Needs JUnit/pytest</span></td></tr>
+            <tr><td>Tracing &amp; screenshots</td><td><span class="badge yes">Built-in</span></td><td><span class="badge no">Third-party</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <hr class="divider">
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- 3. LAYER MODEL                           -->
+      <!-- ════════════════════════════════════════ -->
+      <section class="section" id="layers">
+        <div class="section-eyebrow">03 — core architecture</div>
+        <h2>The Playwright Layer Model</h2>
+        <p class="prose">Playwright is not a monolith — it's a carefully stacked set of layers. Each layer has one job, and they communicate through well-defined interfaces. Think of it like a networking stack (TCP → HTTP → your app) but for browser control.</p>
+
+        <div class="arch-diagram">
+          <h3>Architecture Stack</h3>
+
+          <div class="layer">
+            <div class="layer-label">YOUR CODE (test/script layer)</div>
+            <div class="layer-boxes">
+              <div class="box purple">test('should login…', …)</div>
+              <div class="box purple">page.click('#btn')</div>
+              <div class="box purple">expect(locator).toBeVisible()</div>
+            </div>
+          </div>
+
+          <div class="arrow-down">↕ high-level API</div>
+
+          <div class="layer">
+            <div class="layer-label">PLAYWRIGHT API LAYER (your language binding)</div>
+            <div class="layer-boxes">
+              <div class="box blue">Browser</div>
+              <div class="box blue">BrowserContext</div>
+              <div class="box blue">Page</div>
+              <div class="box blue">Locator</div>
+              <div class="box blue">Request / Response</div>
+            </div>
+          </div>
+
+          <div class="arrow-down">↕ serialized messages (JSON)</div>
+
+          <div class="layer">
+            <div class="layer-label">PLAYWRIGHT SERVER (Node.js process — handles all browsers)</div>
+            <div class="layer-boxes">
+              <div class="box green">Connection Manager</div>
+              <div class="box green">ChannelOwner Registry</div>
+              <div class="box green">Event Dispatcher</div>
+              <div class="box green">Route Handler</div>
+            </div>
+          </div>
+
+          <div class="arrow-down">↕ CDP / Pipe protocol</div>
+
+          <div class="layer">
+            <div class="layer-label">BROWSER DRIVERS (one per engine)</div>
+            <div class="layer-boxes">
+              <div class="box amber">Chromium Driver</div>
+              <div class="box amber">Firefox Driver</div>
+              <div class="box amber">WebKit Driver</div>
+            </div>
+          </div>
+
+          <div class="arrow-down">↕ native browser protocol</div>
+
+          <div class="layer">
+            <div class="layer-label">REAL BROWSER PROCESS</div>
+            <div class="layer-boxes">
+              <div class="box coral">Chromium (patched)</div>
+              <div class="box coral">Firefox (patched)</div>
+              <div class="box coral">WebKit (patched)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Key insight:</strong> The Playwright "server" is always a Node.js process, even when you write tests in Python or Java. Your Python/Java binding talks to the Node.js server over a pipe, which in turn talks to the browser. This is why all language bindings behave identically.
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- 4. CDP PROTOCOL                          -->
+      <!-- ════════════════════════════════════════ -->
+      <section class="section" id="cdp">
+        <div class="section-eyebrow">04 — communication protocol</div>
+        <h2>Chrome DevTools Protocol (CDP)</h2>
+        <p class="prose">CDP is the language Playwright speaks to Chromium. It's the same protocol your browser's DevTools use — Playwright is essentially automating the DevTools from code. Firefox and WebKit have equivalent internal protocols that Playwright wraps uniformly.</p>
+
+        <div class="two-col">
+          <div class="proto-card">
+            <h4 style="color:var(--blue-lt)">What CDP gives us</h4>
+            <ul>
+              <li>Navigate to a URL</li>
+              <li>Evaluate JavaScript in a page</li>
+              <li>Intercept and modify network requests</li>
+              <li>Access DOM element geometry</li>
+              <li>Subscribe to page events (load, crash)</li>
+              <li>Capture screenshots and PDFs</li>
+              <li>Control device emulation</li>
+            </ul>
+          </div>
+          <div class="proto-card">
+            <h4 style="color:var(--green)">CDP message structure</h4>
+            <div class="code-block" style="margin:0;font-size:0.75rem">
+<span class="cm">// Command (client → browser)</span>
+{
+  <span class="str">"id"</span>: <span class="va">42</span>,
+  <span class="str">"method"</span>: <span class="str">"Page.navigate"</span>,
+  <span class="str">"params"</span>: {
+    <span class="str">"url"</span>: <span class="str">"https://example.com"</span>
+  }
+}
+
+<span class="cm">// Response (browser → client)</span>
+{
+  <span class="str">"id"</span>: <span class="va">42</span>,
+  <span class="str">"result"</span>: {
+    <span class="str">"frameId"</span>: <span class="str">"ABCD-1234"</span>
+  }
+}
+            </div>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Why not WebDriver?</strong> WebDriver (Selenium) goes: your code → HTTP request → WebDriver server → browser. That's 2 hops + HTTP overhead. CDP goes: your code → WebSocket → browser. One hop, binary-fast, full-featured access to browser internals.
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- 5. BROWSER SERVER                        -->
+      <!-- ════════════════════════════════════════ -->
+      <section class="section" id="browser-server">
+        <div class="section-eyebrow">05 — process model</div>
+        <h2>The Browser Server Process</h2>
+        <p class="prose">When you call <code style="font-family:var(--mono);color:var(--cyan);font-size:0.88em">playwright.chromium.launch()</code>, Playwright spawns a real Chromium process and keeps a persistent pipe to it. This pipe carries CDP messages at high speed. Here's what the request lifecycle looks like when you call <code style="font-family:var(--mono);color:var(--cyan);font-size:0.88em">page.click()</code>:</p>
+
+        <div class="flow">
+          <div class="flow-step">
+            <div class="flow-num blue">01</div>
+            <div class="flow-body">
+              <h4>Your test calls <code>locator.click()</code></h4>
+              <p>The Playwright API creates an internal command object and serializes it to JSON. For a language binding (Python/Java), it's sent over a pipe to the Node.js Playwright Server first.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num blue">02</div>
+            <div class="flow-body">
+              <h4>Playwright Server receives the command</h4>
+              <p>The Node.js server translates the high-level command into the appropriate CDP messages. A single <code>click()</code> may involve several CDP calls: <code>DOM.getBoxModel</code>, <code>Input.dispatchMouseEvent</code>.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num amber">03</div>
+            <div class="flow-body">
+              <h4>Auto-wait begins</h4>
+              <p>Before clicking, Playwright checks that the element is <strong>visible</strong>, <strong>stable</strong> (not animating), <strong>enabled</strong>, and <strong>receives events</strong>. It polls every ~100ms until all conditions pass or timeout is reached.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num green">04</div>
+            <div class="flow-body">
+              <h4>CDP messages sent to browser</h4>
+              <p>The server sends <code>Input.dispatchMouseEvent</code> with type <code>mouseMoved</code>, then <code>mousePressed</code>, then <code>mouseReleased</code> — simulating a real physical click, not a synthetic JS click.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num green">05</div>
+            <div class="flow-body">
+              <h4>Browser dispatches the event</h4>
+              <p>The real browser engine fires <code>mouseover</code>, <code>mousedown</code>, <code>click</code>, <code>mouseup</code> events on the element, triggering any attached JavaScript handlers.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num coral">06</div>
+            <div class="flow-body">
+              <h4>Result returned to your test</h4>
+              <p>The CDP response flows back through the chain. If a navigation started, Playwright waits for <code>load</code> or <code>domcontentloaded</code> before resolving the promise. Your test continues.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider">
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- 6. BROWSER CONTEXTS                      -->
+      <!-- ════════════════════════════════════════ -->
+      <section class="section" id="contexts">
+        <div class="section-eyebrow">06 — isolation model</div>
+        <h2>Browser Contexts — Playwright's Superpower</h2>
+        <p class="prose">This is the feature that makes Playwright fast and reliable. A <strong>Browser Context</strong> is like a completely isolated browser profile inside one browser process. Each context has its own cookies, localStorage, and cache — completely separate from other contexts.</p>
+
+        <div class="arch-diagram">
+          <h3>One Browser Process, Many Isolated Contexts</h3>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+            <div style="background:var(--navy2);border:1px solid rgba(79,142,247,0.2);border-radius:10px;padding:1rem;flex:1;min-width:180px;">
+              <div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.7rem;">🌐 Chromium Process</div>
+              <div style="display:flex;flex-direction:column;gap:0.5rem;">
+                <div style="background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);border-radius:7px;padding:0.6rem 0.8rem;">
+                  <div style="font-size:0.73rem;color:var(--blue-lt);font-weight:600;margin-bottom:0.3rem;">Context A (Test 1)</div>
+                  <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+                    <span class="tag" style="background:rgba(79,142,247,0.1);color:var(--blue-lt)">cookie: session=abc</span>
+                    <span class="tag" style="background:rgba(79,142,247,0.1);color:var(--blue-lt)">localStorage</span>
+                    <span class="tag" style="background:rgba(79,142,247,0.1);color:var(--blue-lt)">Page 1</span>
+                    <span class="tag" style="background:rgba(79,142,247,0.1);color:var(--blue-lt)">Page 2</span>
+                  </div>
+                </div>
+                <div style="background:rgba(74,222,128,0.07);border:1px solid rgba(74,222,128,0.2);border-radius:7px;padding:0.6rem 0.8rem;">
+                  <div style="font-size:0.73rem;color:var(--green);font-weight:600;margin-bottom:0.3rem;">Context B (Test 2)</div>
+                  <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+                    <span class="tag" style="background:rgba(74,222,128,0.08);color:var(--green)">cookie: session=xyz</span>
+                    <span class="tag" style="background:rgba(74,222,128,0.08);color:var(--green)">localStorage</span>
+                    <span class="tag" style="background:rgba(74,222,128,0.08);color:var(--green)">Page 1</span>
+                  </div>
+                </div>
+                <div style="background:rgba(251,208,96,0.07);border:1px solid rgba(251,208,96,0.2);border-radius:7px;padding:0.6rem 0.8rem;">
+                  <div style="font-size:0.73rem;color:var(--amber);font-weight:600;margin-bottom:0.3rem;">Context C (Test 3)</div>
+                  <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+                    <span class="tag" style="background:rgba(251,208,96,0.08);color:var(--amber)">empty session</span>
+                    <span class="tag" style="background:rgba(251,208,96,0.08);color:var(--amber)">Page 1</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Why this matters for speed:</strong> Selenium creates a new browser process per test — slow and memory hungry. Playwright creates one browser process and lightweight contexts inside it. Creating a new context takes ~1ms vs ~2 seconds for a new browser.
+        </div>
+
+        <div class="code-block">
+          <span class="fname">example: storageState for authentication reuse</span>
+<span class="cm">// One-time setup: log in and save state</span>
+<span class="kw">const</span> <span class="va">context</span> = <span class="kw">await</span> <span class="va">browser</span>.<span class="fn">newContext</span>();
+<span class="kw">await</span> <span class="va">context</span>.<span class="fn">page</span>().<span class="fn">goto</span>(<span class="str">'/login'</span>);
+<span class="kw">await</span> <span class="va">page</span>.<span class="fn">fill</span>(<span class="str">'#email'</span>, <span class="str">'user@test.com'</span>);
+<span class="kw">await</span> <span class="va">page</span>.<span class="fn">click</span>(<span class="str">'button[type=submit]'</span>);
+<span class="kw">await</span> <span class="va">context</span>.<span class="fn">storageState</span>({ path: <span class="str">'auth.json'</span> });
+
+<span class="cm">// Every test reuses this saved session — no login needed</span>
+<span class="kw">const</span> <span class="va">test</span> = <span class="va">base</span>.<span class="fn">extend</span>({
+  <span class="fn">context</span>: <span class="kw">async</span> ({ browser }, use) => {
+    <span class="kw">const</span> <span class="va">ctx</span> = <span class="kw">await</span> <span class="va">browser</span>.<span class="fn">newContext</span>({ storageState: <span class="str">'auth.json'</span> });
+    <span class="kw">await</span> <span class="fn">use</span>(ctx);
+    <span class="kw">await</span> <span class="va">ctx</span>.<span class="fn">close</span>();
+  }
+});
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- 7. PAGES & FRAMES                        -->
+      <!-- ════════════════════════════════════════ -->
+      <section class="section" id="pages">
+        <div class="section-eyebrow">07 — page model</div>
+        <h2>Pages and Frames</h2>
+        <p class="prose">A <strong>Page</strong> represents a single browser tab. Inside a page, you can have nested <strong>Frames</strong> — iframes and sub-frames. Each frame is its own JavaScript execution environment with its own DOM.</p>
+
+        <div class="demo-area">
+          <h3>Explore the object model</h3>
+          <div class="demo-tabs">
+            <button class="demo-tab active" onclick="showTab('page')">Page</button>
+            <button class="demo-tab" onclick="showTab('frame')">Frame / iframe</button>
+            <button class="demo-tab" onclick="showTab('locator')">Locator</button>
+            <button class="demo-tab" onclick="showTab('elementhandle')">ElementHandle</button>
+          </div>
+          <div id="tab-page" class="demo-panel active">
+            <p><strong style="color:var(--blue-lt)">Page</strong> is a single browser tab. It wraps a main frame and provides a unified API for navigation, interaction, and events. Key methods: <code style="font-family:var(--mono);color:var(--cyan);font-size:0.85em">goto()</code>, <code style="font-family:var(--mono);color:var(--cyan);font-size:0.85em">click()</code>, <code style="font-family:var(--mono);color:var(--cyan);font-size:0.85em">fill()</code>, <code style="font-family:var(--mono);color:var(--cyan);font-size:0.85em">screenshot()</code>, <code style="font-family:var(--mono);color:var(--cyan);font-size:0.85em">evaluate()</code>.</p>
+            <p style="margin-top:0.75rem">One context can have many pages (tabs). Playwright can even handle popup windows — a <code style="font-family:var(--mono);color:var(--cyan);font-size:0.85em">window.open()</code> creates a new Page you can get with <code style="font-family:var(--mono);color:var(--cyan);font-size:0.85em">context.waitForPage()</code>.</p>
+          </div>
+          <div id="tab-frame" class="demo-panel">
+            <p><strong style="color:var(--green)">Frames</strong> are the building blocks of a page. The main frame IS the page. Each <code style="font-family:var(--mono);color:var(--cyan);font-size:0.85em">&lt;iframe&gt;</code> element spawns a child frame with its own DOM and JavaScript scope. Playwright handles frames natively — you can query <code style="font-family:var(--mono);color:var(--cyan);font-size:0.85em">page.frame('name')</code> or <code style="font-family:var(--mono);color:var(--cyan);font-size:0.85em">page.frameLocator('iframe')</code> and interact with iframe content directly, which Selenium struggles with.</p>
+          </div>
+          <div id="tab-locator" class="demo-panel">
+            <p><strong style="color:var(--amber)">Locator</strong> is Playwright's preferred way to find elements. It's <em>lazy</em> — it doesn't find the element until you act on it. This means it automatically re-queries the DOM each time, surviving re-renders and dynamic updates. Locators support chaining, filtering, and role-based queries that mirror how users perceive the page. Example: <code style="font-family:var(--mono);color:var(--cyan);font-size:0.85em">page.getByRole('button', { name: 'Submit' })</code>.</p>
+          </div>
+          <div id="tab-elementhandle" class="demo-panel">
+            <p><strong style="color:var(--coral)">ElementHandle</strong> is the lower-level API — it's a live reference to a specific DOM node at a point in time. If the element is re-rendered, your handle is stale. Playwright recommends using Locators instead. ElementHandles exist mainly for passing elements across <code style="font-family:var(--mono);color:var(--cyan);font-size:0.85em">evaluate()</code> calls into page JavaScript.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- 8. EXECUTION CONTEXT                     -->
+      <!-- ════════════════════════════════════════ -->
+      <section class="section" id="execution">
+        <div class="section-eyebrow">08 — javascript bridge</div>
+        <h2>Execution Context &amp; evaluate()</h2>
+        <p class="prose">Every frame has its own JavaScript execution context — it's the same V8/SpiderMonkey/JavaScriptCore runtime that runs your web app's code. Playwright's <code style="font-family:var(--mono);color:var(--cyan);font-size:0.88em">evaluate()</code> lets you inject and run JavaScript inside this context.</p>
+
+        <div class="code-block">
+          <span class="fname">how page.evaluate() works</span>
+<span class="cm">// This function runs INSIDE the browser, not in your test</span>
+<span class="kw">const</span> <span class="va">title</span> = <span class="kw">await</span> <span class="va">page</span>.<span class="fn">evaluate</span>(() => {
+  <span class="kw">return</span> document.title; <span class="cm">// ← browser JS</span>
+});
+
+<span class="cm">// Pass arguments into the browser context</span>
+<span class="kw">const</span> <span class="va">result</span> = <span class="kw">await</span> <span class="va">page</span>.<span class="fn">evaluate</span>(([x, y]) => x + y, [<span class="va">3</span>, <span class="va">4</span>]);
+<span class="cm">// result === 7</span>
+
+<span class="cm">// Expose a Node.js function to page JavaScript</span>
+<span class="kw">await</span> <span class="va">page</span>.<span class="fn">exposeFunction</span>(<span class="str">'readFile'</span>, <span class="kw">async</span> (path) => {
+  <span class="kw">return</span> <span class="va">fs</span>.<span class="fn">readFile</span>(path, <span class="str">'utf8'</span>); <span class="cm">// ← Node.js</span>
+});
+        </div>
+
+        <div class="callout">
+          <strong>Serialization boundary:</strong> Data crossing between your test and the browser must be JSON-serializable. You can't pass functions, class instances, or circular objects. Playwright handles primitives, arrays, and plain objects automatically.
+        </div>
+      </section>
+
+      <hr class="divider">
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- 9. NETWORK INTERCEPTION                  -->
+      <!-- ════════════════════════════════════════ -->
+      <section class="section" id="networking">
+        <div class="section-eyebrow">09 — network layer</div>
+        <h2>Network Interception Architecture</h2>
+        <p class="prose">Playwright sits between your app and the internet at the CDP level — every network request is visible and interceptable before it leaves the browser.</p>
+
+        <div class="flow">
+          <div class="flow-step">
+            <div class="flow-num blue">→</div>
+            <div class="flow-body">
+              <h4>App makes a fetch request</h4>
+              <p>Your web app calls <code>fetch('/api/users')</code>. The browser's network stack prepares the request.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num amber">⚡</div>
+            <div class="flow-body">
+              <h4>CDP fires <code>Network.requestWillBeSent</code></h4>
+              <p>Playwright receives this event and checks it against registered route handlers set up with <code>page.route()</code> or <code>context.route()</code>.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num green">✓</div>
+            <div class="flow-body">
+              <h4>Route handler decides what to do</h4>
+              <p>Your handler can: <code>route.fulfill()</code> (return mock data), <code>route.abort()</code> (simulate network error), or <code>route.continue()</code> (let the real request proceed, optionally modified).</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="code-block">
+          <span class="fname">network mocking example</span>
+<span class="cm">// Mock an API endpoint with fake data</span>
+<span class="kw">await</span> <span class="va">page</span>.<span class="fn">route</span>(<span class="str">'**/api/users'</span>, route => {
+  <span class="va">route</span>.<span class="fn">fulfill</span>({
+    status: <span class="va">200</span>,
+    contentType: <span class="str">'application/json'</span>,
+    body: <span class="va">JSON</span>.<span class="fn">stringify</span>([{ id: <span class="va">1</span>, name: <span class="str">'Alice'</span> }])
+  });
+});
+
+<span class="cm">// Modify request headers before they're sent</span>
+<span class="kw">await</span> <span class="va">context</span>.<span class="fn">route</span>(<span class="str">'**/*'</span>, route => {
+  <span class="va">route</span>.<span class="fn">continue</span>({
+    headers: { ...<span class="va">route</span>.request().<span class="fn">headers</span>(), <span class="str">'X-Test-Run'</span>: <span class="str">'true'</span> }
+  });
+});
+
+<span class="cm">// Simulate slow network</span>
+<span class="kw">await</span> <span class="va">context</span>.<span class="fn">setOffline</span>(<span class="kw">false</span>);
+<span class="kw">await</span> <span class="va">browser</span>.<span class="fn">newContext</span>({ <span class="cm">// throttle</span>
+  offline: <span class="kw">false</span>,
+  httpCredentials: { username: <span class="str">'user'</span>, password: <span class="str">'pass'</span> }
+});
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- 10. PARALLELISM                          -->
+      <!-- ════════════════════════════════════════ -->
+      <section class="section" id="parallel">
+        <div class="section-eyebrow">10 — execution model</div>
+        <h2>How Playwright Runs Tests in Parallel</h2>
+        <p class="prose">Playwright's test runner uses a <strong>worker process model</strong>. Each worker is an independent Node.js child process with its own browser. Tests within a worker run sequentially; multiple workers run simultaneously across CPU cores.</p>
+
+        <div class="arch-diagram">
+          <h3>Parallel Execution Model</h3>
+          <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+            <div style="flex:1;min-width:160px;">
+              <div style="font-size:0.7rem;color:var(--text3);margin-bottom:0.4rem;font-family:var(--mono)">Main process</div>
+              <div style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);border-radius:8px;padding:0.75rem;font-size:0.75rem;color:var(--purple)">
+                @playwright/test<br>
+                <span style="font-size:0.7rem;color:var(--text3)">Distributes tests to workers</span>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;justify-content:center;color:var(--text3);font-size:0.9rem;padding:0 0.25rem">→→→</div>
+            <div style="flex:3;display:flex;gap:0.5rem;flex-wrap:wrap;">
+              <div style="background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.2);border-radius:8px;padding:0.7rem;font-size:0.72rem;flex:1;min-width:120px;">
+                <div style="color:var(--blue-lt);font-weight:600;margin-bottom:0.3rem">Worker 1</div>
+                <div style="color:var(--text3)">Browser Context A</div>
+                <div style="color:var(--text3)">test-001 ✓</div>
+                <div style="color:var(--text3)">test-002 ✓</div>
+              </div>
+              <div style="background:rgba(74,222,128,0.07);border:1px solid rgba(74,222,128,0.2);border-radius:8px;padding:0.7rem;font-size:0.72rem;flex:1;min-width:120px;">
+                <div style="color:var(--green);font-weight:600;margin-bottom:0.3rem">Worker 2</div>
+                <div style="color:var(--text3)">Browser Context B</div>
+                <div style="color:var(--text3)">test-003 ✓</div>
+                <div style="color:var(--text3)">test-004 ✓</div>
+              </div>
+              <div style="background:rgba(251,208,96,0.07);border:1px solid rgba(251,208,96,0.2);border-radius:8px;padding:0.7rem;font-size:0.72rem;flex:1;min-width:120px;">
+                <div style="color:var(--amber);font-weight:600;margin-bottom:0.3rem">Worker 3</div>
+                <div style="color:var(--text3)">Browser Context C</div>
+                <div style="color:var(--text3)">test-005 ⏳</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Default parallelism = CPU cores.</strong> On an 8-core machine, Playwright runs 8 workers simultaneously. You can tune this with <code style="font-family:var(--mono);font-size:0.85em">workers: 4</code> in <code style="font-family:var(--mono);font-size:0.85em">playwright.config.ts</code>. Use <code style="font-family:var(--mono);font-size:0.85em">test.describe.serial</code> to force a group of tests to run sequentially.
+        </div>
+      </section>
+
+      <!-- ════════════════════════════════════════ -->
+      <!-- 11. TRACING                              -->
+      <!-- ════════════════════════════════════════ -->
+      <section class="section" id="tracing">
+        <div class="section-eyebrow">11 — observability</div>
+        <h2>The Tracing Engine</h2>
+        <p class="prose">When a test fails, Playwright can replay exactly what happened. The Trace Viewer captures a complete recording of everything — actions, network, console logs, DOM snapshots — as a single <code style="font-family:var(--mono);color:var(--cyan);font-size:0.88em">.zip</code> file you can open in a browser.</p>
+
+        <div class="cards">
+          <div class="card">
+            <div class="card-icon">📸</div>
+            <h3>DOM Snapshots</h3>
+            <p>Every action captures the full serialized DOM at that moment. You can replay the page state in the Trace Viewer.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon">🌐</div>
+            <h3>Network HAR</h3>
+            <p>All HTTP requests, responses, headers, and bodies are recorded in HAR format alongside the timeline.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon">📹</div>
+            <h3>Video &amp; Screenshots</h3>
+            <p>Playwright can record a video of the test and take screenshots on failure — all captured via CDP.</p>
+          </div>
+          <div class="card">
+            <div class="card-icon">📋</div>
+            <h3>Console &amp; Errors</h3>
+            <p>Browser console messages and JavaScript errors are captured and timestamped on the trace timeline.</p>
+          </div>
+        </div>
+
+        <div class="code-block">
+          <span class="fname">enabling traces in playwright.config.ts</span>
+<span class="va">use</span>: {
+  <span class="cm">// 'off' | 'on' | 'retain-on-failure' | 'on-first-retry'</span>
+  trace: <span class="str">'retain-on-failure'</span>,
+  screenshot: <span class="str">'only-on-failure'</span>,
+  video: <span class="str">'retain-on-failure'</span>,
+},
+
+<span class="cm">// Start/stop traces manually</span>
+<span class="kw">await</span> <span class="va">context</span>.<span class="fn">tracing</span>.<span class="fn">start</span>({ screenshots: <span class="kw">true</span>, snapshots: <span class="kw">true</span> });
+<span class="kw">await</span> <span class="va">context</span>.<span class="fn">tracing</span>.<span class="fn">stop</span>({ path: <span class="str">'trace.zip'</span> });
+<span class="cm">// View: npx playwright show-trace trace.zip</span>
+        </div>
+
+        <div style="background:var(--card2);border:1px solid rgba(74,222,128,0.2);border-radius:var(--radius);padding:1rem 1.25rem;margin-top:1.25rem">
+          <div style="font-size:0.78rem;font-weight:600;color:var(--green);margin-bottom:0.6rem">🎓 Summary: What makes Playwright's architecture special</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.6rem">
+            <div style="font-size:0.8rem;color:var(--text2)"><strong style="color:var(--text1)">Direct browser protocol</strong> — CDP/BiDi, not HTTP middleware chains like WebDriver</div>
+            <div style="font-size:0.8rem;color:var(--text2)"><strong style="color:var(--text1)">Lightweight contexts</strong> — isolated sessions without spawning new processes</div>
+            <div style="font-size:0.8rem;color:var(--text1)"><strong style="color:var(--text1)">Universal Node.js server</strong> — all language bindings use the same battle-tested core</div>
+            <div style="font-size:0.8rem;color:var(--text2)"><strong style="color:var(--text1)">Auto-wait at every layer</strong> — actionability checks built into the API itself</div>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /content -->
+  </main><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+  function showTab(id) {
+    document.querySelectorAll('.demo-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.demo-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  // Active nav link on scroll
+  const sections = document.querySelectorAll('.section[id]');
+  const navLinks = document.querySelectorAll('.nav-link');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(l => l.classList.remove('active'));
+        const link = document.querySelector(`.nav-link[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

@@ -1,112 +1,101 @@
 # Playwright Automation Mastery
 
-A Playwright end-to-end test automation project.
+A basic end-to-end test automation project using [Playwright Test](https://playwright.dev/docs/intro) and TypeScript/JavaScript test files.
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) (LTS version recommended)
-- npm (comes with Node.js)
+- [Node.js](https://nodejs.org/) 18 or newer (LTS recommended)
+- npm (included with Node.js)
 
-## Installation & Setup
+## Installation and setup
 
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/DobariyaN/PlaywrightAutomationMastery.git
-   cd PlaywrightAutomationMastery
-   ```
-
-2. Install project dependencies:
-
-   ```bash
-   npm install
-   ```
-
-3. Install Playwright and its browser binaries:
-
-   ```bash
-   npm init playwright@latest
-   ```
-
-   Or, if Playwright is already listed in `package.json` (as in this repo), just install the browsers:
-
-   ```bash
-   npx playwright install
-   ```
-
-## Running Tests
-
-Run all tests:
+Clone the repository and install its dependencies:
 
 ```bash
-npx playwright test
+git clone https://github.com/DobariyaN/PlaywrightAutomationMastery.git
+cd PlaywrightAutomationMastery
+npm install
 ```
 
-Run tests in headed mode (visible browser):
+Install the Playwright browser binaries:
 
 ```bash
-npx playwright test --headed
+npx playwright install
 ```
 
-Run a specific test file:
+On Linux CI machines, install the browsers and their system dependencies with:
 
 ```bash
-npx playwright test tests/tta-check.spec.ts
+npx playwright install --with-deps
 ```
 
-Run tests in debug mode:
+The main configuration is in `playwright.config.ts`. Tests are stored in `tests/`.
+
+## Run tests
+
+Run the complete test suite:
 
 ```bash
-npx playwright test --debug
+npm test
 ```
 
-Show the HTML test report after a run:
+Run tests with a visible browser, debug mode, or a specific test file:
 
 ```bash
-npx playwright show-report
+npm run test:headed
+npm run test:debug
+npx playwright test tests/example.spec.ts
 ```
 
-## Using Codegen
+Open the HTML report after a test run:
 
-Playwright Codegen records your interactions with a browser and generates test code automatically — a great way to bootstrap new tests.
+```bash
+npm run report
+```
 
-Launch codegen against a target URL:
+## Generate tests with Codegen
+
+Codegen opens a browser, records your actions, and generates Playwright test code. Start it with:
 
 ```bash
 npx playwright codegen https://example.com
 ```
 
-Launch codegen with a specific browser:
-
-```bash
-npx playwright codegen --browser=firefox https://example.com
-```
-
-Save the generated code directly to a file:
+Save generated code to a test file:
 
 ```bash
 npx playwright codegen --output tests/generated-test.spec.ts https://example.com
 ```
 
-Record with a specific viewport size or device emulation:
+Useful options include browser selection, viewport size, and device emulation:
 
 ```bash
+npx playwright codegen --browser=firefox https://example.com
 npx playwright codegen --viewport-size=1280,720 https://example.com
 npx playwright codegen --device="iPhone 13" https://example.com
 ```
 
-## Project Structure
+The equivalent npm script can be used when passing Codegen arguments:
 
+```bash
+npm run codegen -- https://example.com
 ```
+
+Review generated locators and assertions before committing the test. Avoid committing credentials or other sensitive data recorded by Codegen.
+
+## Project structure
+
+```text
 PlaywrightAutomationMastery/
-├── tests/                 # Test spec files
-├── playwright.config.ts   # Playwright configuration
-├── package.json
-└── README.md
+├── tests/                         # Playwright test specifications
+├── playwright-architecture-guide/ # Playwright architecture reference material
+├── playwright.config.ts           # Playwright configuration
+├── package.json                   # Project scripts and dependencies
+└── README.md                      # Setup and usage guide
 ```
 
-## Useful Links
+## Useful links
 
-- [Playwright Documentation](https://playwright.dev/docs/intro)
-- [Playwright Codegen Docs](https://playwright.dev/docs/codegen)
-- [Playwright API Reference](https://playwright.dev/docs/api/class-playwright)
+- [Playwright installation](https://playwright.dev/docs/intro)
+- [Playwright test generator / Codegen](https://playwright.dev/docs/codegen)
+- [Playwright assertions](https://playwright.dev/docs/test-assertions)

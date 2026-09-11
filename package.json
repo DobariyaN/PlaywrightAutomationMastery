@@ -1,9 +1,15 @@
 {
   "name": "playwrightautomationmastery",
   "version": "1.0.0",
-  "description": "",
+  "description": "Playwright end-to-end test automation project",
   "main": "",
-  "scripts": {},
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen"
+  },
   "keywords": [],
   "author": "Nilesh Dobariya",
   "license": "MIT",

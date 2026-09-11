@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Playwright Architecture — Student Deep Dive</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  /* ── Reset & Tokens ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --surface2:  #1c2330;
+    --border:    #30363d;
+    --accent:    #58a6ff;
+    --accent2:   #3fb950;
+    --warn:      #e3b341;
+    --danger:    #f85149;
+    --text:      #e6edf3;
+    --muted:     #8b949e;
+    --code-bg:   #1f2937;
+    --tip-bg:    #0d2137;
+    --warn-bg:   #251c00;
+    --key-bg:    #0d2a14;
+    --font:      'Inter', sans-serif;
+    --mono:      'JetBrains Mono', monospace;
+    --radius:    8px;
+    --sidebar-w: 260px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.7;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ── */
+  nav#sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: var(--sidebar-w);
+    height: 100vh;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 100;
+  }
+
+  .nav-logo {
+    padding: 20px 20px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-logo span.badge {
+    display: inline-block;
+    background: var(--accent);
+    color: #000;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    letter-spacing: .04em;
+    margin-bottom: 6px;
+  }
+  .nav-logo h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  nav#sidebar ul {
+    list-style: none;
+    padding: 12px 0;
+    flex: 1;
+  }
+  nav#sidebar ul li a {
+    display: block;
+    padding: 7px 20px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    border-left: 3px solid transparent;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  nav#sidebar ul li a:hover,
+  nav#sidebar ul li a.active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: rgba(88,166,255,.06);
+  }
+  nav#sidebar ul li.section-label {
+    padding: 12px 20px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  /* ── Main Content ── */
+  main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    max-width: 860px;
+    padding: 48px 56px 100px;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    margin-bottom: 56px;
+    padding-bottom: 40px;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: .03em;
+  }
+  .pill-blue  { background: rgba(88,166,255,.15); color: var(--accent); border: 1px solid rgba(88,166,255,.3); }
+  .pill-green { background: rgba(63,185,80,.12);  color: var(--accent2); border: 1px solid rgba(63,185,80,.25); }
+  .pill-yellow{ background: rgba(227,179,65,.12); color: var(--warn);   border: 1px solid rgba(227,179,65,.25); }
+
+  .hero h1 {
+    font-size: 38px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text);
+    margin-bottom: 14px;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .hero p.subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    max-width: 580px;
+    line-height: 1.6;
+  }
+
+  /* ── Section headings ── */
+  section { margin-bottom: 64px; }
+
+  h2.sec-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2.sec-title .icon { font-size: 22px; }
+
+  .sec-divider {
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent) 0%, transparent 100%);
+    border: none;
+    margin-bottom: 24px;
+    border-radius: 2px;
+    width: 80px;
+  }
+
+  h3.sub-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 28px 0 10px;
+    padding-left: 10px;
+    border-left: 3px solid var(--accent);
+  }
+
+  p { color: var(--text); margin-bottom: 14px; max-width: 680px; }
+  ul.content-list { padding-left: 20px; margin-bottom: 14px; }
+  ul.content-list li { margin-bottom: 6px; color: var(--text); }
+  ul.content-list li strong { color: var(--accent); }
+
+  /* ── Callout boxes ── */
+  .callout {
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin: 20px 0;
+    border-left: 4px solid;
+    max-width: 680px;
+  }
+  .callout-tip    { background: var(--tip-bg);  border-color: var(--accent);  }
+  .callout-warn   { background: var(--warn-bg); border-color: var(--warn);   }
+  .callout-key    { background: var(--key-bg);  border-color: var(--accent2); }
+  .callout-danger { background: rgba(248,81,73,.08); border-color: var(--danger); }
+
+  .callout-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .callout-tip  .callout-label  { color: var(--accent);  }
+  .callout-warn .callout-label  { color: var(--warn);    }
+  .callout-key  .callout-label  { color: var(--accent2); }
+  .callout-danger .callout-label{ color: var(--danger);  }
+
+  .callout p { margin: 0; font-size: 14px; max-width: none; }
+
+  /* ── Code blocks ── */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin: 18px 0;
+    overflow: hidden;
+    max-width: 720px;
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: rgba(255,255,255,.03);
+    border-bottom: 1px solid var(--border);
+  }
+  .code-lang {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    font-family: var(--mono);
+    letter-spacing: .04em;
+  }
+  .code-file {
+    font-size: 11px;
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+  pre {
+    padding: 18px 20px;
+    overflow-x: auto;
+    margin: 0;
+  }
+  code {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.65;
+  }
+  .c-comment { color: #6e7681; }
+  .c-keyword  { color: #ff7b72; }
+  .c-string   { color: #a5d6ff; }
+  .c-fn       { color: #d2a8ff; }
+  .c-type     { color: #ffa657; }
+  .c-num      { color: #79c0ff; }
+  .c-green    { color: var(--accent2); }
+  .c-yellow   { color: var(--warn); }
+
+  /* ── Architecture diagram ── */
+  .arch-diagram {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    margin: 20px 0;
+    max-width: 640px;
+  }
+  .arch-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .arch-box {
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    min-width: 160px;
+  }
+  .arch-arrow {
+    font-size: 20px;
+    color: var(--muted);
+    font-weight: 300;
+  }
+  .ab-playwright { background: rgba(88,166,255,.18); color: var(--accent); border: 1px solid rgba(88,166,255,.4); }
+  .ab-context    { background: rgba(63,185,80,.14);  color: var(--accent2); border: 1px solid rgba(63,185,80,.3); }
+  .ab-page       { background: rgba(227,179,65,.14); color: var(--warn);   border: 1px solid rgba(227,179,65,.3); }
+  .ab-element    { background: rgba(248,81,73,.1);   color: #f87171;       border: 1px solid rgba(248,81,73,.25); }
+  .ab-sub {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--muted);
+    margin-top: 2px;
+    display: block;
+  }
+  .arch-vertical {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .arch-v-arrow { font-size: 20px; color: var(--muted); }
+  .arch-browsers {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .browser-pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .bp-chromium { background: rgba(88,166,255,.12); color: #79c0ff; border: 1px solid rgba(88,166,255,.25); }
+  .bp-firefox  { background: rgba(255,140,0,.1);   color: #ffa657; border: 1px solid rgba(255,140,0,.25); }
+  .bp-webkit   { background: rgba(63,185,80,.1);   color: var(--accent2); border: 1px solid rgba(63,185,80,.2); }
+
+  /* ── Folder tree ── */
+  .folder-tree {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.8;
+    max-width: 580px;
+  }
+  .ft-dir   { color: var(--accent); }
+  .ft-file  { color: var(--text); }
+  .ft-desc  { color: var(--muted); font-size: 12px; }
+  .ft-indent1 { padding-left: 20px; }
+  .ft-indent2 { padding-left: 40px; }
+
+  /* ── Step cards ── */
+  .step-list { display: flex; flex-direction: column; gap: 14px; margin: 20px 0; max-width: 680px; }
+  .step-card {
+    display: flex;
+    gap: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    align-items: flex-start;
+  }
+  .step-num {
+    min-width: 32px;
+    height: 32px;
+    background: var(--accent);
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .step-body h4 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .step-body p  { font-size: 13px; color: var(--muted); margin: 0; max-width: none; }
+
+  /* ── Feature grid ── */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+    max-width: 680px;
+  }
+  .feature-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .feature-card .fc-icon { font-size: 22px; margin-bottom: 8px; }
+  .feature-card h4 { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .feature-card p  { font-size: 12px; color: var(--muted); margin: 0; max-width: none; }
+
+  /* ── Browser support table ── */
+  table.support-table {
+    width: 100%;
+    max-width: 680px;
+    border-collapse: collapse;
+    margin: 18px 0;
+    font-size: 13px;
+  }
+  table.support-table th {
+    background: var(--surface2);
+    color: var(--muted);
+    font-weight: 600;
+    padding: 10px 14px;
+    text-align: left;
+    border: 1px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  table.support-table td {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+  }
+  table.support-table tr:nth-child(even) td { background: rgba(255,255,255,.02); }
+  .check { color: var(--accent2); font-weight: 700; }
+  .cross { color: var(--danger); }
+
+  /* ── Progress bar ── */
+  .progress-tracker {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    height: 3px;
+    background: var(--border);
+    margin-left: calc(-1 * var(--sidebar-w));
+    width: calc(100vw);
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    width: 0%;
+    transition: width .1s;
+  }
+
+  /* ── CI/CD pipeline ── */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin: 20px 0;
+    max-width: 680px;
+  }
+  .pipe-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  .pipe-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    text-align: center;
+    min-width: 90px;
+  }
+  .pipe-box.active { border-color: var(--accent); color: var(--accent); background: rgba(88,166,255,.08); }
+  .pipe-arrow { font-size: 18px; color: var(--muted); padding-bottom: 18px; }
+  .pipe-label { font-size: 10px; color: var(--muted); }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 0 0;
+    margin-top: 40px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    nav#sidebar { display: none; }
+    main { margin-left: 0; padding: 28px 20px 60px; }
+    .hero h1 { font-size: 28px; }
+    .arch-diagram { padding: 16px; }
+  }
+
+  /* ── Inline code ── */
+  :not(pre) > code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 12.5px;
+    color: var(--warn);
+  }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="nav-logo">
+    <span class="badge">🎭 GUIDE</span>
+    <h2>Playwright Architecture<br>Student Deep Dive</h2>
+  </div>
+  <ul>
+    <li class="section-label">Introduction</li>
+    <li><a href="#s1">What is Playwright?</a></li>
+    <li><a href="#s2">How Playwright Works</a></li>
+    <li class="section-label">Core Concepts</li>
+    <li><a href="#s3">Architecture Hierarchy</a></li>
+    <li><a href="#s4">Project Structure</a></li>
+    <li><a href="#s5">Page Object Model</a></li>
+    <li class="section-label">Testing</li>
+    <li><a href="#s6">API Testing</a></li>
+    <li><a href="#s7">Hybrid Testing</a></li>
+    <li><a href="#s8">Fixtures & Hooks</a></li>
+    <li class="section-label">Advanced</li>
+    <li><a href="#s9">Configuration</a></li>
+    <li><a href="#s10">Multi-browser</a></li>
+    <li><a href="#s11">Reporting & Debug</a></li>
+    <li><a href="#s12">CI/CD Pipeline</a></li>
+    <li><a href="#s13">Best Practices</a></li>
+  </ul>
+</nav>
+
+<!-- Reading progress bar -->
+<div class="progress-tracker"><div class="progress-bar" id="progressBar"></div></div>
+
+<!-- Main -->
+<main>
+
+  <!-- HERO -->
+  <div class="hero" id="top">
+    <div class="hero-eyebrow">
+      <span class="pill pill-blue">TypeScript</span>
+      <span class="pill pill-green">API + UI</span>
+      <span class="pill pill-yellow">Deep Dive</span>
+    </div>
+    <h1>Playwright<br><em>Architecture</em> Guide</h1>
+    <p class="subtitle">A complete student guide to building a professional, scalable Playwright testing framework — covering everything from browser internals to CI/CD pipelines.</p>
+  </div>
+
+  <!-- SECTION 1 -->
+  <section id="s1">
+    <h2 class="sec-title"><span class="icon">🎭</span> What is Playwright?</h2>
+    <hr class="sec-divider" />
+    <p>Playwright is an open-source end-to-end testing framework developed by <strong>Microsoft</strong>. It lets you write automated tests that control real browsers — Chromium, Firefox, and WebKit — all from a single API using TypeScript, JavaScript, Python, Java, or .NET.</p>
+    <p>Unlike older tools like Selenium, Playwright was built <em>for the modern web</em>. It handles single-page apps, shadow DOM, network interception, file uploads, and multi-tab scenarios out of the box.</p>
+
+    <div class="callout callout-key">
+      <div class="callout-label">📌 Key Concept</div>
+      <p>Playwright communicates with browsers using the <strong>Chrome DevTools Protocol (CDP)</strong> for Chromium, and custom protocols for Firefox and WebKit. This gives it deep, low-level access to browser internals — much faster and more reliable than older WebDriver-based tools.</p>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="fc-icon">⚡</div>
+        <h4>Auto-wait</h4>
+        <p>Playwright automatically waits for elements to be ready before acting.</p>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">🌐</div>
+        <h4>Cross-browser</h4>
+        <p>Single API controls Chromium, Firefox, and WebKit natively.</p>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">🔌</div>
+        <h4>API Testing</h4>
+        <p>Test REST APIs directly without a browser using built-in HTTP client.</p>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">📸</div>
+        <h4>Trace Viewer</h4>
+        <p>Record full traces with screenshots, network logs, and console output.</p>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">🔒</div>
+        <h4>Isolation</h4>
+        <p>Each test gets a fresh browser context — no shared state between tests.</p>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">🎯</div>
+        <h4>Smart Locators</h4>
+        <p>Finds elements by role, text, label — the way real users see the page.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 2 -->
+  <section id="s2">
+    <h2 class="sec-title"><span class="icon">⚙️</span> How Playwright Works Internally</h2>
+    <hr class="sec-divider" />
+    <p>Understanding Playwright's internals helps you write smarter, more reliable tests. At its core, Playwright is a <strong>Node.js library</strong> that speaks directly to browsers over a WebSocket connection using browser-specific protocols.</p>
+
+    <div class="step-list">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Your test code runs in Node.js</h4>
+          <p>When you run <code>npx playwright test</code>, your TypeScript tests are compiled and executed in a Node.js process.</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Playwright launches a browser process</h4>
+          <p>Playwright spawns a real Chromium, Firefox, or WebKit browser process on your machine (not a simulator).</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>WebSocket connection is established</h4>
+          <p>Playwright connects to the browser over a WebSocket, sending JSON commands (e.g., "click this element", "navigate to this URL").</p>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h4>Browser executes and responds</h4>
+          <p>The browser executes each command and sends back results, events, and errors. Playwright waits for stability automatically.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-label">💡 Tip</div>
+      <p>This is why Playwright is so fast — there's no HTTP round-trip overhead like old Selenium WebDriver. Commands go directly over a persistent WebSocket connection.</p>
+    </div>
+  </section>
+
+  <!-- SECTION 3 -->
+  <section id="s3">
+    <h2 class="sec-title"><span class="icon">🏗️</span> Architecture Hierarchy</h2>
+    <hr class="sec-divider" />
+    <p>Playwright is built on a clear 4-level hierarchy. Every test you write operates within this structure.</p>
+
+    <div class="arch-diagram">
+      <div class="arch-vertical">
+        <div class="arch-box ab-playwright">
+          🎭 Playwright
+          <span class="ab-sub">The top-level launcher</span>
+        </div>
+        <div class="arch-v-arrow">↓</div>
+        <div class="arch-box ab-context">
+          🗂 BrowserContext
+          <span class="ab-sub">Isolated session (like an incognito window)</span>
+        </div>
+        <div class="arch-v-arrow">↓</div>
+        <div class="arch-box ab-page">
+          📄 Page
+          <span class="ab-sub">A single browser tab</span>
+        </div>
+        <div class="arch-v-arrow">↓</div>
+        <div class="arch-box ab-element">
+          🔍 Locator / Element
+          <span class="ab-sub">DOM elements you interact with</span>
+        </div>
+        <div class="arch-v-arrow">↓</div>
+        <div class="arch-browsers">
+          <div class="browser-pill bp-chromium">Chromium</div>
+          <div class="browser-pill bp-firefox">Firefox</div>
+          <div class="browser-pill bp-webkit">WebKit</div>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="sub-title">BrowserContext — the key to isolation</h3>
+    <p>A <code>BrowserContext</code> is like an incognito window — it has its own cookies, storage, and session. This is how Playwright keeps tests isolated from each other. Every test automatically gets its own context.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">TYPESCRIPT</span>
+        <span class="code-file">concept-demo.ts</span>
+      </div>
+      <pre><code><span class="c-comment">// Playwright creates these automatically during tests,</span>
+<span class="c-comment">// but here's what's happening under the hood:</span>
+
+<span class="c-keyword">const</span> browser = <span class="c-keyword">await</span> chromium.<span class="c-fn">launch</span>();
+
+<span class="c-comment">// Each context = completely isolated session</span>
+<span class="c-keyword">const</span> contextA = <span class="c-keyword">await</span> browser.<span class="c-fn">newContext</span>(); <span class="c-comment">// User A</span>
+<span class="c-keyword">const</span> contextB = <span class="c-keyword">await</span> browser.<span class="c-fn">newContext</span>(); <span class="c-comment">// User B (no shared cookies!)</span>
+
+<span class="c-comment">// Each page = a browser tab within that context</span>
+<span class="c-keyword">const</span> pageA = <span class="c-keyword">await</span> contextA.<span class="c-fn">newPage</span>();
+<span class="c-keyword">const</span> pageB = <span class="c-keyword">await</span> contextB.<span class="c-fn">newPage</span>();
+
+<span class="c-keyword">await</span> pageA.<span class="c-fn">goto</span>(<span class="c-string">'https://example.com'</span>);
+<span class="c-keyword">await</span> pageB.<span class="c-fn">goto</span>(<span class="c-string">'https://example.com'</span>); <span class="c-comment">// independent</span></code></pre>
+    </div>
+  </section>
+
+  <!-- SECTION 4 -->
+  <section id="s4">
+    <h2 class="sec-title"><span class="icon">📁</span> Project Structure</h2>
+    <hr class="sec-divider" />
+    <p>A well-organized Playwright project separates concerns cleanly. Here is the recommended folder structure for a professional TypeScript + POM hybrid framework:</p>
+
+    <div class="folder-tree">
+      <div><span class="ft-dir">playwright-framework/</span></div>
+      <div class="ft-indent1"><span class="ft-dir">config/</span> <span class="ft-desc">← env configs, base URLs</span></div>
+      <div class="ft-indent2"><span class="ft-file">env.ts</span></div>
+      <div class="ft-indent2"><span class="ft-file">playwright.config.ts</span></div>
+      <div class="ft-indent1"><span class="ft-dir">pages/</span> <span class="ft-desc">← Page Object Model classes</span></div>
+      <div class="ft-indent2"><span class="ft-file">LoginPage.ts</span></div>
+      <div class="ft-indent2"><span class="ft-file">DashboardPage.ts</span></div>
+      <div class="ft-indent2"><span class="ft-file">BasePage.ts</span></div>
+      <div class="ft-indent1"><span class="ft-dir">api/</span> <span class="ft-desc">← API client classes</span></div>
+      <div class="ft-indent2"><span class="ft-file">ApiClient.ts</span></div>
+      <div class="ft-indent2"><span class="ft-file">UserApi.ts</span></div>
+      <div class="ft-indent1"><span class="ft-dir">tests/</span></div>
+      <div class="ft-indent2"><span class="ft-dir">ui/</span> <span class="ft-desc">← pure UI tests</span></div>
+      <div class="ft-indent2"><span class="ft-dir">api/</span> <span class="ft-desc">← pure API tests</span></div>
+      <div class="ft-indent2"><span class="ft-dir">hybrid/</span> <span class="ft-desc">← API + UI combined tests</span></div>
+      <div class="ft-indent1"><span class="ft-dir">fixtures/</span> <span class="ft-desc">← custom Playwright fixtures</span></div>
+      <div class="ft-indent2"><span class="ft-file">index.ts</span></div>
+      <div class="ft-indent1"><span class="ft-dir">utils/</span> <span class="ft-desc">← helpers, data generators</span></div>
+      <div class="ft-indent1"><span class="ft-dir">test-data/</span> <span class="ft-desc">← JSON test data files</span></div>
+      <div class="ft-indent1"><span class="ft-dir">reports/</span> <span class="ft-desc">← Allure + HTML output</span></div>
+      <div class="ft-indent1"><span class="ft-dir">.github/workflows/</span> <span class="ft-desc">← CI/CD pipelines</span></div>
+      <div class="ft-indent1"><span class="ft-file">package.json</span></div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-label">⚠️ Common Mistake</div>
+      <p>Beginners often put all their test logic directly in spec files. This makes tests hard to maintain. Always extract repeated UI interactions into <strong>Page Objects</strong> and shared setup into <strong>Fixtures</strong>.</p>
+    </div>
+  </section>
+
+  <!-- SECTION 5 -->
+  <section id="s5">
+    <h2 class="sec-title"><span class="icon">🧩</span> Page Object Model (POM)</h2>
+    <hr class="sec-divider" />
+    <p>The Page Object Model is a design pattern that wraps every page of your application in a TypeScript class. Instead of writing selectors directly in your tests, you write them once in a page class and reuse them everywhere.</p>
+
+    <h3 class="sub-title">BasePage — shared functionality</h3>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">TYPESCRIPT</span>
+        <span class="code-file">pages/BasePage.ts</span>
+      </div>
+      <pre><code><span class="c-keyword">import</span> { Page } <span class="c-keyword">from</span> <span class="c-string">'@playwright/test'</span>;
+
+<span class="c-comment">// All page objects extend this base class</span>
+<span class="c-keyword">export class</span> <span class="c-type">BasePage</span> {
+  <span class="c-keyword">readonly</span> page: <span class="c-type">Page</span>;
+
+  <span class="c-fn">constructor</span>(page: <span class="c-type">Page</span>) {
+    <span class="c-keyword">this</span>.page = page;
+  }
+
+  <span class="c-comment">// Shared utility: navigate to a path</span>
+  <span class="c-keyword">async</span> <span class="c-fn">goto</span>(path: <span class="c-type">string</span> = <span class="c-string">'/'</span>) {
+    <span class="c-keyword">await</span> <span class="c-keyword">this</span>.page.<span class="c-fn">goto</span>(path);
+  }
+
+  <span class="c-comment">// Wait for network to settle</span>
+  <span class="c-keyword">async</span> <span class="c-fn">waitForLoad</span>() {
+    <span class="c-keyword">await</span> <span class="c-keyword">this</span>.page.<span class="c-fn">waitForLoadState</span>(<span class="c-string">'networkidle'</span>);
+  }
+
+  <span class="c-comment">// Take a screenshot (useful for debugging)</span>
+  <span class="c-keyword">async</span> <span class="c-fn">screenshot</span>(name: <span class="c-type">string</span>) {
+    <span class="c-keyword">await</span> <span class="c-keyword">this</span>.page.<span class="c-fn">screenshot</span>({ path: <span class="c-string">`reports/<span class="c-yellow">${name}</span>.png`</span> });
+  }
+}</code></pre>
+    </div>
+
+    <h3 class="sub-title">LoginPage — a real page object</h3>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">TYPESCRIPT</span>
+        <span class="code-file">pages/LoginPage.ts</span>
+      </div>
+      <pre><code><span class="c-keyword">import</span> { Page, Locator } <span class="c-keyword">from</span> <span class="c-string">'@playwright/test'</span>;
+<span class="c-keyword">import</span> { BasePage } <span class="c-keyword">from</span> <span class="c-string">'./BasePage'</span>;
+
+<span class="c-keyword">export class</span> <span class="c-type">LoginPage</span> <span class="c-keyword">extends</span> <span class="c-type">BasePage</span> {
+
+  <span class="c-comment">// Define locators once — use everywhere</span>
+  <span class="c-keyword">readonly</span> emailInput:    <span class="c-type">Locator</span>;
+  <span class="c-keyword">readonly</span> passwordInput: <span class="c-type">Locator</span>;
+  <span class="c-keyword">readonly</span> loginButton:   <span class="c-type">Locator</span>;
+  <span class="c-keyword">readonly</span> errorMsg:      <span class="c-type">Locator</span>;
+
+  <span class="c-fn">constructor</span>(page: <span class="c-type">Page</span>) {
+    <span class="c-keyword">super</span>(page);
+    <span class="c-comment">// Best practice: use role/label locators (accessible + resilient)</span>
+    <span class="c-keyword">this</span>.emailInput    = page.<span class="c-fn">getByLabel</span>(<span class="c-string">'Email'</span>);
+    <span class="c-keyword">this</span>.passwordInput = page.<span class="c-fn">getByLabel</span>(<span class="c-string">'Password'</span>);
+    <span class="c-keyword">this</span>.loginButton   = page.<span class="c-fn">getByRole</span>(<span class="c-string">'button'</span>, { name: <span class="c-string">'Log in'</span> });
+    <span class="c-keyword">this</span>.errorMsg      = page.<span class="c-fn">getByRole</span>(<span class="c-string">'alert'</span>);
+  }
+
+  <span class="c-comment">// Action method: encapsulate the full login flow</span>
+  <span class="c-keyword">async</span> <span class="c-fn">login</span>(email: <span class="c-type">string</span>, password: <span class="c-type">string</span>) {
+    <span class="c-keyword">await</span> <span class="c-keyword">this</span>.<span class="c-fn">goto</span>(<span class="c-string">'/login'</span>);
+    <span class="c-keyword">await</span> <span class="c-keyword">this</span>.emailInput.<span class="c-fn">fill</span>(email);
+    <span class="c-keyword">await</span> <span class="c-keyword">this</span>.passwordInput.<span class="c-fn">fill</span>(password);
+    <span class="c-keyword">await</span> <span class="c-keyword">this</span>.loginButton.<span class="c-fn">click</span>();
+  }
+}
+
+<span class="c-comment">// In your test, it's now clean and readable:</span>
+<span class="c-comment">// const loginPage = new LoginPage(page);</span>
+<span class="c-comment">// await loginPage.login('user@test.com', 'password');</span></code></pre>
+    </div>
+
+    <div class="callout callout-key">
+      <div class="callout-label">📌 Key Concept</div>
+      <p>Notice we use <code>getByLabel</code> and <code>getByRole</code> instead of CSS selectors like <code>.login-btn</code>. These <strong>semantic locators</strong> are more resilient — they survive UI redesigns and also match how screen readers see the page.</p>
+    </div>
+  </section>
+
+  <!-- SECTION 6 -->
+  <section id="s6">
+    <h2 class="sec-title"><span class="icon">🔌</span> API Testing with Playwright</h2>
+    <hr class="sec-divider" />
+    <p>Playwright isn't just for UI. Its built-in <code>APIRequestContext</code> lets you make HTTP requests directly — perfect for testing REST APIs or setting up test data without touching the browser.</p>
+
+    <h3 class="sub-title">API Client class</h3>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">TYPESCRIPT</span>
+        <span class="code-file">api/ApiClient.ts</span>
+      </div>
+      <pre><code><span class="c-keyword">import</span> { APIRequestContext, request } <span class="c-keyword">from</span> <span class="c-string">'@playwright/test'</span>;
+
+<span class="c-keyword">export class</span> <span class="c-type">ApiClient</span> {
+  <span class="c-keyword">private</span> apiContext: <span class="c-type">APIRequestContext</span>;
+
+  <span class="c-fn">constructor</span>(apiContext: <span class="c-type">APIRequestContext</span>) {
+    <span class="c-keyword">this</span>.apiContext = apiContext;
+  }
+
+  <span class="c-comment">// POST /auth/login — returns auth token</span>
+  <span class="c-keyword">async</span> <span class="c-fn">login</span>(email: <span class="c-type">string</span>, password: <span class="c-type">string</span>) {
+    <span class="c-keyword">const</span> response = <span class="c-keyword">await</span> <span class="c-keyword">this</span>.apiContext.<span class="c-fn">post</span>(<span class="c-string">'/auth/login'</span>, {
+      data: { email, password }
+    });
+    <span class="c-keyword">return</span> response.<span class="c-fn">json</span>(); <span class="c-comment">// { token: "abc123..." }</span>
+  }
+
+  <span class="c-comment">// GET /users/:id — fetch user by ID</span>
+  <span class="c-keyword">async</span> <span class="c-fn">getUser</span>(id: <span class="c-type">number</span>, token: <span class="c-type">string</span>) {
+    <span class="c-keyword">const</span> response = <span class="c-keyword">await</span> <span class="c-keyword">this</span>.apiContext.<span class="c-fn">get</span>(<span class="c-string">`/users/<span class="c-yellow">${id}</span>`</span>, {
+      headers: { <span class="c-string">'Authorization'</span>: <span class="c-string">`Bearer <span class="c-yellow">${token}</span>`</span> }
+    });
+    <span class="c-keyword">return</span> response.<span class="c-fn">json</span>();
+  }
+
+  <span class="c-comment">// DELETE /users/:id — clean up test data</span>
+  <span class="c-keyword">async</span> <span class="c-fn">deleteUser</span>(id: <span class="c-type">number</span>, token: <span class="c-type">string</span>) {
+    <span class="c-keyword">await</span> <span class="c-keyword">this</span>.apiContext.<span class="c-fn">delete</span>(<span class="c-string">`/users/<span class="c-yellow">${id}</span>`</span>, {
+      headers: { <span class="c-string">'Authorization'</span>: <span class="c-string">`Bearer <span class="c-yellow">${token}</span>`</span> }
+    });
+  }
+}</code></pre>
+    </div>
+
+    <h3 class="sub-title">A pure API test</h3>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">TYPESCRIPT</span>
+        <span class="code-file">tests/api/user.api.spec.ts</span>
+      </div>
+      <pre><code><span class="c-keyword">import</span> { test, expect } <span class="c-keyword">from</span> <span class="c-string">'@playwright/test'</span>;
+
+test.<span class="c-fn">describe</span>(<span class="c-string">'User API'</span>, () => {
+
+  test(<span class="c-string">'should return 200 for valid login'</span>, <span class="c-keyword">async</span> ({ request }) => {
+    <span class="c-keyword">const</span> response = <span class="c-keyword">await</span> request.<span class="c-fn">post</span>(<span class="c-string">'/auth/login'</span>, {
+      data: { email: <span class="c-string">'admin@test.com'</span>, password: <span class="c-string">'secret'</span> }
+    });
+
+    <span class="c-comment">// Assert status code</span>
+    <span class="c-keyword">await</span> <span class="c-fn">expect</span>(response).<span class="c-fn">toBeOK</span>(); <span class="c-comment">// 2xx</span>
+
+    <span class="c-comment">// Assert response body shape</span>
+    <span class="c-keyword">const</span> body = <span class="c-keyword">await</span> response.<span class="c-fn">json</span>();
+    <span class="c-fn">expect</span>(body).toHaveProperty(<span class="c-string">'token'</span>);
+    <span class="c-fn">expect</span>(<span class="c-keyword">typeof</span> body.token).<span class="c-fn">toBe</span>(<span class="c-string">'string'</span>);
+  });
+
+});</code></pre>
+    </div>
+  </section>
+
+  <!-- SECTION 7 -->
+  <section id="s7">
+    <h2 class="sec-title"><span class="icon">🔀</span> Hybrid Testing (API + UI)</h2>
+    <hr class="sec-divider" />
+    <p>Hybrid tests are the most powerful pattern in a real project. You use the API to <strong>set up state fast</strong> (e.g., create a user via API), then use the browser to <strong>verify the UI</strong> reflects that state. This is far faster than doing everything through the UI.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-label">💡 Real-World Pattern</div>
+      <p>Instead of clicking through a registration form to create a test user before every UI test, just POST to <code>/users</code> via the API. The UI test starts immediately without the slow form flow.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">TYPESCRIPT</span>
+        <span class="code-file">tests/hybrid/user-profile.spec.ts</span>
+      </div>
+      <pre><code><span class="c-keyword">import</span> { test, expect } <span class="c-keyword">from</span> <span class="c-string">'../fixtures'</span>; <span class="c-comment">// custom fixtures</span>
+<span class="c-keyword">import</span> { LoginPage } <span class="c-keyword">from</span> <span class="c-string">'../../pages/LoginPage'</span>;
+
+test(<span class="c-string">'user profile shows correct name after API creation'</span>, <span class="c-keyword">async</span> ({ page, apiClient }) => {
+
+  <span class="c-comment">// ── ARRANGE: create user via API (fast!) ──</span>
+  <span class="c-keyword">const</span> newUser = <span class="c-keyword">await</span> apiClient.<span class="c-fn">createUser</span>({
+    name:     <span class="c-string">'Jane Doe'</span>,
+    email:    <span class="c-string">'jane@test.com'</span>,
+    password: <span class="c-string">'securePass123'</span>,
+  });
+
+  <span class="c-comment">// ── ACT: log in via UI ──</span>
+  <span class="c-keyword">const</span> loginPage = <span class="c-keyword">new</span> <span class="c-type">LoginPage</span>(page);
+  <span class="c-keyword">await</span> loginPage.<span class="c-fn">login</span>(<span class="c-string">'jane@test.com'</span>, <span class="c-string">'securePass123'</span>);
+
+  <span class="c-comment">// ── ASSERT: UI shows the correct name ──</span>
+  <span class="c-keyword">await</span> <span class="c-fn">expect</span>(page.<span class="c-fn">getByText</span>(<span class="c-string">'Jane Doe'</span>)).<span class="c-fn">toBeVisible</span>();
+
+  <span class="c-comment">// ── CLEANUP: delete user via API (no UI needed) ──</span>
+  <span class="c-keyword">await</span> apiClient.<span class="c-fn">deleteUser</span>(newUser.id);
+});</code></pre>
+    </div>
+  </section>
+
+  <!-- SECTION 8 -->
+  <section id="s8">
+    <h2 class="sec-title"><span class="icon">🔧</span> Fixtures & Hooks</h2>
+    <hr class="sec-divider" />
+    <p>Fixtures are Playwright's dependency injection system. They let you define reusable setup/teardown logic that gets injected into tests automatically. Think of them as shared building blocks.</p>
+
+    <h3 class="sub-title">Built-in hooks (beforeEach / afterAll)</h3>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">TYPESCRIPT</span>
+        <span class="code-file">tests/ui/login.spec.ts</span>
+      </div>
+      <pre><code><span class="c-keyword">import</span> { test, expect } <span class="c-keyword">from</span> <span class="c-string">'@playwright/test'</span>;
+<span class="c-keyword">import</span> { LoginPage } <span class="c-keyword">from</span> <span class="c-string">'../../pages/LoginPage'</span>;
+
+test.<span class="c-fn">describe</span>(<span class="c-string">'Login flow'</span>, () => {
+
+  <span class="c-comment">// Runs before every test in this describe block</span>
+  test.<span class="c-fn">beforeEach</span>(<span class="c-keyword">async</span> ({ page }) => {
+    <span class="c-keyword">await</span> page.<span class="c-fn">goto</span>(<span class="c-string">'/login'</span>);
+  });
+
+  <span class="c-comment">// Runs after ALL tests in this block</span>
+  test.<span class="c-fn">afterAll</span>(<span class="c-keyword">async</span> () => {
+    <span class="c-comment">// clean up shared resources</span>
+  });
+
+  test(<span class="c-string">'valid credentials → dashboard'</span>, <span class="c-keyword">async</span> ({ page }) => {
+    <span class="c-keyword">const</span> login = <span class="c-keyword">new</span> <span class="c-type">LoginPage</span>(page);
+    <span class="c-keyword">await</span> login.<span class="c-fn">login</span>(<span class="c-string">'user@test.com'</span>, <span class="c-string">'pass'</span>);
+    <span class="c-keyword">await</span> <span class="c-fn">expect</span>(page).<span class="c-fn">toHaveURL</span>(<span class="c-string">'/dashboard'</span>);
+  });
+
+});</code></pre>
+    </div>
+
+    <h3 class="sub-title">Custom fixtures</h3>
+    <p>Custom fixtures let you share things like an authenticated page, API client, or test user across all your tests with zero boilerplate.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">TYPESCRIPT</span>
+        <span class="code-file">fixtures/index.ts</span>
+      </div>
+      <pre><code><span class="c-keyword">import</span> { test <span class="c-keyword">as</span> base, request } <span class="c-keyword">from</span> <span class="c-string">'@playwright/test'</span>;
+<span class="c-keyword">import</span> { ApiClient } <span class="c-keyword">from</span> <span class="c-string">'../api/ApiClient'</span>;
+
+<span class="c-comment">// Extend Playwright's built-in fixtures</span>
+<span class="c-keyword">export const</span> test = base.<span class="c-fn">extend</span>&lt;{
+  apiClient: <span class="c-type">ApiClient</span>;
+  authToken: <span class="c-type">string</span>;
+}&gt;({
+
+  <span class="c-comment">// Fixture: API client available in every test</span>
+  apiClient: <span class="c-keyword">async</span> ({ }, use) => {
+    <span class="c-keyword">const</span> ctx = <span class="c-keyword">await</span> request.<span class="c-fn">newContext</span>({
+      baseURL: process.env.<span class="c-type">API_BASE_URL</span>,
+    });
+    <span class="c-keyword">await</span> <span class="c-fn">use</span>(<span class="c-keyword">new</span> <span class="c-type">ApiClient</span>(ctx));
+    <span class="c-keyword">await</span> ctx.<span class="c-fn">dispose</span>(); <span class="c-comment">// auto-cleanup after test</span>
+  },
+
+  <span class="c-comment">// Fixture: pre-authenticated token</span>
+  authToken: <span class="c-keyword">async</span> ({ apiClient }, use) => {
+    <span class="c-keyword">const</span> { token } = <span class="c-keyword">await</span> apiClient.<span class="c-fn">login</span>(
+      <span class="c-string">'admin@test.com'</span>, <span class="c-string">'secret'</span>
+    );
+    <span class="c-keyword">await</span> <span class="c-fn">use</span>(token);
+  },
+});
+
+<span class="c-keyword">export</span> { expect } <span class="c-keyword">from</span> <span class="c-string">'@playwright/test'</span>;</code></pre>
+    </div>
+
+    <div class="callout callout-key">
+      <div class="callout-label">📌 Key Concept</div>
+      <p>Notice the <code>use(value)</code> pattern. Everything <em>before</em> <code>use()</code> is setup, and everything <em>after</em> is teardown. Playwright automatically calls teardown even if the test fails — no leaking state!</p>
+    </div>
+  </section>
+
+  <!-- SECTION 9 -->
+  <section id="s9">
+    <h2 class="sec-title"><span class="icon">⚙️</span> Configuration Deep Dive</h2>
+    <hr class="sec-divider" />
+    <p>The <code>playwright.config.ts</code> file is the brain of your framework. Let's walk through it line by line.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">TYPESCRIPT</span>
+        <span class="code-file">playwright.config.ts</span>
+      </div>
+      <pre><code><span class="c-keyword">import</span> { defineConfig, devices } <span class="c-keyword">from</span> <span class="c-string">'@playwright/test'</span>;
+<span class="c-keyword">import</span> <span class="c-string">'dotenv/config'</span>; <span class="c-comment">// loads .env file</span>
+
+<span class="c-keyword">export default</span> <span class="c-fn">defineConfig</span>({
+
+  <span class="c-comment">// Where are the test files?</span>
+  testDir: <span class="c-string">'./tests'</span>,
+
+  <span class="c-comment">// Run up to 4 tests in parallel (great for CI)</span>
+  workers: <span class="c-num">4</span>,
+
+  <span class="c-comment">// Retry failed tests once (flakiness protection)</span>
+  retries: process.env.<span class="c-type">CI</span> ? <span class="c-num">2</span> : <span class="c-num">0</span>,
+
+  <span class="c-comment">// Fail fast if too many tests fail</span>
+  maxFailures: <span class="c-num">10</span>,
+
+  <span class="c-comment">// Settings applied to every test</span>
+  use: {
+    baseURL: process.env.<span class="c-type">BASE_URL</span> ?? <span class="c-string">'http://localhost:3000'</span>,
+    screenshot: <span class="c-string">'only-on-failure'</span>, <span class="c-comment">// capture on fail</span>
+    video:      <span class="c-string">'retain-on-failure'</span>, <span class="c-comment">// record on fail</span>
+    trace:      <span class="c-string">'on-first-retry'</span>,   <span class="c-comment">// trace on retry</span>
+    headless: <span class="c-keyword">true</span>,
+  },
+
+  <span class="c-comment">// Multiple reporters</span>
+  reporter: [
+    [<span class="c-string">'html'</span>, { outputFolder: <span class="c-string">'reports/html'</span> }],
+    [<span class="c-string">'allure-playwright'</span>],
+    [<span class="c-string">'list'</span>], <span class="c-comment">// console output</span>
+  ],
+
+  <span class="c-comment">// Which browsers / devices to test on</span>
+  projects: [
+    { name: <span class="c-string">'chromium'</span>, use: { ...devices[<span class="c-string">'Desktop Chrome'</span>]  } },
+    { name: <span class="c-string">'firefox'</span>,  use: { ...devices[<span class="c-string">'Desktop Firefox'</span>] } },
+    { name: <span class="c-string">'webkit'</span>,   use: { ...devices[<span class="c-string">'Desktop Safari'</span>]  } },
+    { name: <span class="c-string">'mobile'</span>,   use: { ...devices[<span class="c-string">'iPhone 13'</span>]       } },
+  ],
+});</code></pre>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-label">⚠️ Environment Variables</div>
+      <p>Never hardcode URLs or credentials in the config. Use a <code>.env</code> file locally and CI/CD environment secrets in production. Add <code>.env</code> to <code>.gitignore</code> immediately!</p>
+    </div>
+  </section>
+
+  <!-- SECTION 10 -->
+  <section id="s10">
+    <h2 class="sec-title"><span class="icon">🌐</span> Multi-browser Testing</h2>
+    <hr class="sec-divider" />
+    <p>Playwright bundles its own versions of each browser — you don't need to install Chrome separately. Each browser has its own rendering engine, so testing all three catches real cross-browser bugs.</p>
+
+    <table class="support-table">
+      <thead>
+        <tr>
+          <th>Browser</th>
+          <th>Engine</th>
+          <th>Headless</th>
+          <th>Mobile Emulation</th>
+          <th>Video Recording</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Chromium</td>
+          <td>Blink</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+        </tr>
+        <tr>
+          <td>Firefox</td>
+          <td>Gecko</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+        </tr>
+        <tr>
+          <td>WebKit</td>
+          <td>WebKit</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+          <td class="check">✓</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-tip">
+      <div class="callout-label">💡 Tip</div>
+      <p>During local development, run only Chromium to stay fast: <code>npx playwright test --project=chromium</code>. Run all browsers only in CI to save time.</p>
+    </div>
+  </section>
+
+  <!-- SECTION 11 -->
+  <section id="s11">
+    <h2 class="sec-title"><span class="icon">📊</span> Reporting & Debugging</h2>
+    <hr class="sec-divider" />
+    <p>When a test fails, you need to understand <em>exactly</em> what happened. Playwright gives you several powerful tools for this.</p>
+
+    <h3 class="sub-title">HTML Reporter</h3>
+    <p>Run <code>npx playwright show-report</code> after a test run to open a beautiful interactive HTML report showing pass/fail status, screenshots, and test duration.</p>
+
+    <h3 class="sub-title">Playwright Trace Viewer</h3>
+    <p>Traces record every action, network request, and screenshot in a timeline. When a test fails in CI, download the trace and open it locally:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">BASH</span>
+        <span class="code-file">terminal</span>
+      </div>
+      <pre><code><span class="c-comment"># Open a saved trace file</span>
+npx playwright show-trace trace.zip
+
+<span class="c-comment"># Run with trace recording always on</span>
+npx playwright test --trace on</code></pre>
+    </div>
+
+    <h3 class="sub-title">Allure Reporter</h3>
+    <p>Allure gives you a rich dashboard with test history, trends, and categorized failures — perfect for sharing with a team or manager.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">BASH</span>
+        <span class="code-file">terminal</span>
+      </div>
+      <pre><code><span class="c-comment"># Install allure</span>
+npm install --save-dev allure-playwright
+
+<span class="c-comment"># Generate and open the Allure report</span>
+allure generate allure-results --clean -o allure-report
+allure open allure-report</code></pre>
+    </div>
+
+    <h3 class="sub-title">Debug Mode</h3>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">BASH</span>
+        <span class="code-file">terminal</span>
+      </div>
+      <pre><code><span class="c-comment"># Open Playwright Inspector (step through test interactively)</span>
+npx playwright test --debug
+
+<span class="c-comment"># Use UI mode — the most powerful debugging experience</span>
+npx playwright test --ui</code></pre>
+    </div>
+  </section>
+
+  <!-- SECTION 12 -->
+  <section id="s12">
+    <h2 class="sec-title"><span class="icon">🚀</span> CI/CD Pipeline</h2>
+    <hr class="sec-divider" />
+    <p>Automated tests are only valuable if they run automatically on every code change. Here's a GitHub Actions pipeline that runs your full Playwright suite:</p>
+
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pipe-box active">Push / PR</div>
+        <div class="pipe-label">Trigger</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-box">Install</div>
+        <div class="pipe-label">npm ci + browsers</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-box">Run Tests</div>
+        <div class="pipe-label">Parallel workers</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-box">Upload Report</div>
+        <div class="pipe-label">Artifacts</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-box">Notify</div>
+        <div class="pipe-label">Pass / Fail</div>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-lang">YAML</span>
+        <span class="code-file">.github/workflows/playwright.yml</span>
+      </div>
+      <pre><code>name: Playwright Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Playwright tests
+        run: npx playwright test
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          CI: true
+
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        if: always()   # upload even if tests fail!
+        with:
+          name: playwright-report
+          path: reports/html/
+          retention-days: 14</code></pre>
+    </div>
+  </section>
+
+  <!-- SECTION 13 -->
+  <section id="s13">
+    <h2 class="sec-title"><span class="icon">✅</span> Best Practices & Common Mistakes</h2>
+    <hr class="sec-divider" />
+
+    <h3 class="sub-title">Best Practices</h3>
+    <ul class="content-list">
+      <li><strong>Use semantic locators</strong> — prefer <code>getByRole</code>, <code>getByLabel</code>, <code>getByText</code> over CSS/XPath selectors.</li>
+      <li><strong>Keep tests independent</strong> — each test must be able to run alone in any order. Never rely on state from a previous test.</li>
+      <li><strong>Use fixtures for setup</strong> — don't repeat <code>beforeEach</code> blocks across files; extract to a shared fixture.</li>
+      <li><strong>Use the API for test data</strong> — create/clean test data via API calls, not UI flows. Much faster.</li>
+      <li><strong>Avoid hard waits</strong> — never use <code>page.waitForTimeout(3000)</code>. Use <code>expect(locator).toBeVisible()</code> instead.</li>
+      <li><strong>Group tests with describe</strong> — use <code>test.describe</code> to logically group related tests and share <code>beforeEach</code> scope.</li>
+      <li><strong>Name tests clearly</strong> — a test name should read like a user story: <code>'admin can delete a user account'</code>.</li>
+    </ul>
+
+    <h3 class="sub-title">Common Mistakes</h3>
+    <div class="callout callout-danger">
+      <div class="callout-label">❌ Mistake 1 — Hard waits</div>
+      <p><code>await page.waitForTimeout(3000)</code> is fragile and slow. Replace with <code>await expect(page.getByText('Loaded')).toBeVisible()</code>.</p>
+    </div>
+    <div class="callout callout-danger">
+      <div class="callout-label">❌ Mistake 2 — Brittle selectors</div>
+      <p>Never use <code>page.locator('.btn-primary-v2-disabled')</code>. Class names change. Use <code>page.getByRole('button', { name: 'Submit' })</code>.</p>
+    </div>
+    <div class="callout callout-danger">
+      <div class="callout-label">❌ Mistake 3 — Shared state between tests</div>
+      <p>Never store test results in a module-level variable that multiple tests read/write. Each test must be a clean island.</p>
+    </div>
+    <div class="callout callout-danger">
+      <div class="callout-label">❌ Mistake 4 — Skipping teardown</div>
+      <p>Always clean up test data after tests (especially users, orders, records). Stale data causes mysterious failures later.</p>
+    </div>
+
+    <div class="callout callout-key">
+      <div class="callout-label">🎓 Golden Rule</div>
+      <p>A test that is <strong>fast, isolated, readable, and deterministic</strong> is worth ten flaky tests. Write fewer, better tests.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>🎭 Playwright Architecture Guide — Built for students learning modern test automation.</p>
+    <p style="margin-top:6px;">Playwright docs: <strong>playwright.dev</strong> &nbsp;|&nbsp; TypeScript: <strong>typescriptlang.org</strong></p>
+  </footer>
+
+</main>
+
+<script>
+  // Reading progress bar
+  window.addEventListener('scroll', () => {
+    const scrollTop = document.documentElement.scrollTop;
+    const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    const pct = (scrollTop / docHeight) * 100;
+    document.getElementById('progressBar').style.width = pct + '%';
+  });
+
+  // Active sidebar link
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('nav#sidebar a');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active'));
+        const active = document.querySelector(`nav#sidebar a[href="#${entry.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
