@@ -1,0 +1,27 @@
+{
+  "name": "learningplaywrightfundamentals3x",
+  "version": "1.0.0",
+  "description": "Playwright + TypeScript fundamentals practice repo - The Testing Academy",
+  "main": "",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen"
+  },
+  "keywords": [
+    "playwright",
+    "typescript",
+    "automation",
+    "testing",
+    "codegen"
+  ],
+  "author": "Pramod Dutta",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.5.0"
+  }
+}
