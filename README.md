@@ -87,11 +87,12 @@ Review generated locators and assertions before committing the test. Avoid commi
 
 ```text
 PlaywrightAutomationMastery/
-├── tests/                         # Playwright test specifications
-├── playwright-architecture-guide/ # Playwright architecture reference material
-├── playwright.config.ts           # Playwright configuration
-├── package.json                   # Project scripts and dependencies
-└── README.md                      # Setup and usage guide
+├── tests/                              # Playwright test specifications
+├── playwright-architecture-guide/      # Playwright architecture reference material
+├── LearningPlaywrightFundamentals3x/   # Merged fundamentals curriculum (23 topics)
+├── playwright.config.ts                # Playwright configuration
+├── package.json                        # Project scripts and dependencies
+└── README.md                           # Setup and usage guide
 ```
 
 ## Useful links
