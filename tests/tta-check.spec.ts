@@ -1,11 +1,14 @@
 import { test, expect } from '@playwright/test';
 
-test('test', async ({ page }) => {
+test('filters and clicks the exact Forgotten Password link', async ({ page }) => {
   await page.goto('https://app.thetestingacademy.com/playwright/multiple_element_filter');
-  await page.getByRole('textbox', { name: 'Email Address' }).click();
-  await page.getByRole('textbox', { name: 'Email Address' }).fill('Nilesh');
-  await page.getByRole('textbox', { name: 'Password' }).click();
-  await page.getByRole('textbox', { name: 'Password' }).fill('123');
-  await page.getByTestId('login-button').click();
-  await page.waitForTimeout(30000);
+
+  const accountLinks = page.locator('a.list-group-item');
+  await expect(accountLinks).toHaveCount(13);
+
+  const forgottenPasswordLink = accountLinks.filter({ hasText: 'Forgotten Password' });
+  await expect(forgottenPasswordLink).toHaveCount(1);
+
+  await forgottenPasswordLink.click();
+  await expect(page).toHaveURL(/#forgotten-password/);
 });
