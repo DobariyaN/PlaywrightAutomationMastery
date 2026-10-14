@@ -7,3 +7,5 @@ test('Verify the TestCase', async ({ page }) => {
 
    await page.pause();
 });
+
+//playwright WebTables
