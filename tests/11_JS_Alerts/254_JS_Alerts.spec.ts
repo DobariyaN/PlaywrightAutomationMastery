@@ -1,5 +1,7 @@
 import { test, expect, Locator } from '@playwright/test';
 
+//playwright - JS_Alerts
+
 test.describe('Javascript Alerts', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('https://the-internet.herokuapp.com/javascript_alerts');
