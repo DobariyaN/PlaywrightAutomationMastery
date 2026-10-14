@@ -16,3 +16,4 @@ test("Verify X", async ({ page }) => {
     });
 
 });
+// playwright Locator Commands
