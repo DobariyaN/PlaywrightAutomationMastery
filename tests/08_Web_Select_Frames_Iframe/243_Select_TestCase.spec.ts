@@ -8,3 +8,5 @@ test('Verify DropDowns', async ({ page }) => {
 
    await page.pause();
 });
+
+//playwright -  Web Select Frames Iframe
