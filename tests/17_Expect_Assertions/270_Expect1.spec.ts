@@ -17,10 +17,8 @@ test.describe('Scroll to Element - TestingAcademy', () => {
       expect({ role: 'admin' }).toEqual({ role: 'admin' });
       expect({ age: 20, role: 'admin' }).toEqual({ role: 'admin', age: 20 });
 
-
-
-
-
    });
 
 });
+
+//playwright - Expect_Assertions
