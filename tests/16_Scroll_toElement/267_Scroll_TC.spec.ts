@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test'; //playwright - Scroll_toElement
 
 test.describe('Scroll to Element - TestingAcademy', () => {
 
