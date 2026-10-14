@@ -10,3 +10,4 @@ test('admin', async ({ page }) => {
   await expect(page).toHaveTitle("Fast and reliable end-to-end testing for modern web apps | Playwright");
 });
 
+//playwright test
