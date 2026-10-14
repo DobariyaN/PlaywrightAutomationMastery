@@ -7,6 +7,7 @@ test.use(
         storageState : './user-session.json'
     });
 
+//playwright Allure Reporting
 
 test("go directly to dashboard — Test1", async ({ page }) => {
     await page.goto("https://app.wingify.com/#/dashboard?accountId=1281316");
