@@ -1,4 +1,4 @@
-import { test, expect, Locator } from '@playwright/test';
+import { test, expect, Locator } from '@playwright/test'; //playwright -  Shadow_DOM 
 
 test.describe('Shadow handling', () => {
 
