@@ -16,11 +16,6 @@ test.describe('File Upload Demo - TestingAcademy', () => {
          await staticDownload.saveAs('./out/'+ staticDownload.suggestedFilename());
 
 
-
-
-
-
-
    });
 
 });
