@@ -39,3 +39,5 @@ async function saveSession() {
 
 }
 saveSession();
+
+// playwright Session Storage
