@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test'; //playwright -  Test hooks
 const URL = 'https://app.thetestingacademy.com/playwright/multiple_element_filter.html';
 
 
