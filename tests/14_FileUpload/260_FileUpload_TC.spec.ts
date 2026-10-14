@@ -1,4 +1,4 @@
-import { test, expect, Locator } from '@playwright/test';
+import { test, expect, Locator } from '@playwright/test'; //playwright - FileUpload
 import path from 'path';
 
 const URL = 'https://the-internet.herokuapp.com/upload'; // replace with target page
