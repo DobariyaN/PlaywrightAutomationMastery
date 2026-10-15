@@ -1,5 +1,6 @@
 import { type Locator, type Page } from '@playwright/test';
 
+// Page Object Mode
 /**
  * A deliberately oversized page object: 100 locators in one constructor.
  *
